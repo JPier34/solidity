@@ -1,0 +1,69 @@
+Optimized IR:
+/// @use-src 0:"input.sol"
+object "C_15" {
+    code {
+        {
+            /// @src 0:59:200  "contract C {..."
+            let _1 := memoryguard(0x80)
+            mstore(64, _1)
+            if callvalue() { revert(0, 0) }
+            let _2 := datasize("C_15_deployed")
+            codecopy(_1, dataoffset("C_15_deployed"), _2)
+            return(_1, _2)
+        }
+    }
+    /// @use-src 0:"input.sol"
+    object "C_15_deployed" {
+        code {
+            {
+                /// @src 0:59:200  "contract C {..."
+                let _1 := memoryguard(0x80)
+                mstore(64, _1)
+                if iszero(lt(calldatasize(), 4))
+                {
+                    if eq(0x26121ff0, shr(224, calldataload(0)))
+                    {
+                        if callvalue() { revert(0, 0) }
+                        if slt(add(calldatasize(), not(3)), 0) { revert(0, 0) }
+                        let newFreePtr := add(_1, 64)
+                        if or(gt(newFreePtr, 0xffffffffffffffff), lt(newFreePtr, _1))
+                        {
+                            mstore(0, shl(224, 0x4e487b71))
+                            mstore(4, 0x41)
+                            revert(0, 0x24)
+                        }
+                        mstore(64, newFreePtr)
+                        mstore(_1, 12)
+                        let _2 := add(_1, 32)
+                        mstore(_2, "example.main")
+                        /// @src 0:177:191  "erc7201(const)"
+                        let _3 := add(keccak256(/** @src 0:100:114  "\"example.main\"" */ _2, /** @src 0:59:200  "contract C {..." */ 12), /** @src 0:177:191  "erc7201(const)" */ not(0))
+                        /// @src 0:100:114  "\"example.main\""
+                        let outPtr := /** @src 0:59:200  "contract C {..." */ mload(64)
+                        /// @src 0:100:114  "\"example.main\""
+                        let _4 := add(outPtr, /** @src 0:59:200  "contract C {..." */ 32)
+                        mstore(_4, _3)
+                        /// @src 0:100:114  "\"example.main\""
+                        mstore(outPtr, /** @src 0:59:200  "contract C {..." */ 32)
+                        let newFreePtr_1 := add(outPtr, 64)
+                        if or(gt(newFreePtr_1, 0xffffffffffffffff), lt(newFreePtr_1, outPtr))
+                        {
+                            mstore(0, shl(224, 0x4e487b71))
+                            mstore(4, 0x41)
+                            revert(0, 0x24)
+                        }
+                        mstore(64, newFreePtr_1)
+                        /// @src 0:170:191  "return erc7201(const)"
+                        let var := /** @src 0:177:191  "erc7201(const)" */ and(keccak256(/** @src 0:100:114  "\"example.main\"" */ _4, mload(/** @src 0:177:191  "erc7201(const)" */ outPtr)), not(255))
+                        /// @src 0:59:200  "contract C {..."
+                        let memPos := mload(64)
+                        mstore(memPos, var)
+                        return(memPos, 32)
+                    }
+                }
+                revert(0, 0)
+            }
+        }
+        data ".metadata" hex"<BYTECODE REMOVED>"
+    }
+}
