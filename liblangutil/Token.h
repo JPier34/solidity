@@ -379,6 +379,12 @@ namespace TokenTraits
 
 	bool isYulKeyword(std::string_view _literal);
 
+	bool isFutureSolidityKeyword(std::string const& _literal);
+
+	bool isFutureYulKeyword(std::string const& _literal);
+
+	bool isFutureYulReservedIdentifier(std::string const& _literal);
+
 	Token AssignmentToBinaryOp(Token op);
 
 	// @returns the precedence > 0 for binary and compare

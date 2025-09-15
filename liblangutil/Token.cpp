@@ -152,6 +152,39 @@ bool isYulKeyword(std::string_view const _literal)
 	return _literal == "leave" || isYulKeyword(keywordByName(_literal));
 }
 
+bool isFutureSolidityKeyword(std::string const& _literal)
+{
+	std::set<std::string> const futureSolidityKeywords = {
+		"transient",
+		"layout",
+		"at",
+		"error",
+		"super",
+		"this"
+	};
+	return futureSolidityKeywords.contains(_literal);
+}
+
+bool isFutureYulKeyword(std::string const& _literal)
+{
+	return _literal == "leave";
+}
+
+bool isFutureYulReservedIdentifier(std::string const& _literal)
+{
+	std::set<std::string> futureReservedIdentifier = {
+		"basefee",
+		"blobbasefee",
+		"blobhash",
+		"mcopy",
+		"memoryguard",
+		"prevrandao",
+		"tload",
+		"tstore",
+	};
+	return futureReservedIdentifier.contains(_literal);
+}
+
 std::tuple<Token, unsigned int, unsigned int> fromIdentifierOrKeyword(std::string const& _literal)
 {
 	// Used for `bytesM`, `uintM`, `intM`, `fixedMxN`, `ufixedMxN`.
