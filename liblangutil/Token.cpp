@@ -176,6 +176,7 @@ bool isFutureYulReservedIdentifier(std::string const& _literal)
 		"basefee",
 		"blobbasefee",
 		"blobhash",
+		"clz",
 		"mcopy",
 		"memoryguard",
 		"prevrandao",

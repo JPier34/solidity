@@ -30,6 +30,7 @@
 #include <libyul/ScopeFiller.h>
 
 #include <liblangutil/ErrorReporter.h>
+#include <liblangutil/Token.h>
 
 #include <libsolutil/CommonData.h>
 #include <libsolutil/StringUtils.h>
@@ -296,9 +297,7 @@ void AsmAnalyzer::operator()(VariableDeclaration const& _varDecl)
 				m_currentScope->insideFunction()
 			);
 	for (auto const& variable: _varDecl.variables)
-	{
 		expectValidIdentifier(variable.name, nativeLocationOf(variable));
-	}
 
 	if (_varDecl.value)
 	{
@@ -745,6 +744,8 @@ void AsmAnalyzer::expectValidIdentifier(YulName _identifier, SourceLocation cons
 			_location,
 			fmt::format("The identifier \"{}\" is reserved and can not be used.", label)
 		);
+
+	checkFutureKeywordOrReservedIdentifier(_identifier, _location);
 }
 
 bool AsmAnalyzer::validateInstructions(std::string_view _instructionIdentifier, langutil::SourceLocation const& _location)
@@ -952,4 +953,22 @@ void AsmAnalyzer::validateObjectStructure(langutil::SourceLocation const& _astRo
 			);
 		}
 	}
+}
+
+void AsmAnalyzer::checkFutureKeywordOrReservedIdentifier(YulName _identifier, langutil::SourceLocation const& _location)
+{
+	if (
+		TokenTraits::isFutureYulKeyword(_identifier.str()) ||
+		TokenTraits::isFutureYulReservedIdentifier(_identifier.str())
+	)
+		m_errorReporter.warning(
+			5470_error,
+			_location,
+			fmt::format(
+				"\"{}\" will be promoted to Yul {} in the next breaking version "
+				"and will not be allowed anymore as an identifier.",
+				_identifier.str(),
+				(TokenTraits::isFutureYulKeyword(_identifier.str()) ? "keyword" : "reserved identifier")
+			)
+		);
 }
