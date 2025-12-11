@@ -1,6 +1,8 @@
 ### 0.8.34 (unreleased)
 
 Language Features:
+* NameAndTypeResolver: Warn about identifiers selected for future promotion to Solidity keywords.
+* Yul Analyzer: Warn about identifiers selected for future promotion to Yul keywords.
 
 Compiler Features:
 * Yul Optimizer: Remove redundant prerequisite steps from the default optimizer sequence.
