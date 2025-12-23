@@ -40,7 +40,8 @@ jobs:
         with:
           script: |
             const output = process.env.STYLE_OUTPUT;
-            const body = `There was an error when running \`Code Style Check\` for commit \`${context.sha}\`:
+            const headSha = context.payload.pull_request.head.sha;
+            const body = `There was an error when running \`Code Style Check\` for commit \`${headSha}\`:
             \`\`\`
             ${output}
             \`\`\`
@@ -62,7 +63,7 @@ jobs:
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   pull_number: context.issue.number,
-                  commit_id: context.sha,
+                  commit_id: headSha,
                   path: filePath,
                   line: parseInt(lineNumber),
                   side: 'RIGHT',
