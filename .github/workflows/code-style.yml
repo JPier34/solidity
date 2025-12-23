@@ -17,16 +17,17 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt -q update
-          sudo apt install -y shellcheck git
+          sudo apt install -y shellcheck git openssl
 
       - name: Check for C++ coding style
         id: style-check
         run: |
           output=$(scripts/check_style.sh 2>&1) || {
+            delimiter="$(openssl rand -hex 8)"
             {
-              echo "output<<EOF"
+              echo "output<<${delimiter}"
               echo "$output"
-              echo "EOF"
+              echo "${delimiter}"
             } >> $GITHUB_OUTPUT
             exit 1
           }
