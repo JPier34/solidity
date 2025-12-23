@@ -57,16 +57,20 @@ jobs:
               const match = line.match(/^([^:]+\.(cpp|h)):(\d+):/);
               if (!match) continue;
               const [, filePath, , lineNumber] = match;
-              await github.rest.pulls.createReviewComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: context.issue.number,
-                commit_id: context.sha,
-                path: filePath,
-                line: parseInt(lineNumber),
-                side: 'RIGHT',
-                body: 'Coding style error'
-              });
+              try {
+                await github.rest.pulls.createReviewComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: context.issue.number,
+                  commit_id: context.sha,
+                  path: filePath,
+                  line: parseInt(lineNumber),
+                  side: 'RIGHT',
+                  body: 'Coding style error'
+                });
+              } catch (error) {
+                console.log(`Could not add inline comment for ${filePath}:${lineNumber}: ${error.message}`);
+              }
             }
 
       - name: checking shell scripts
