@@ -488,7 +488,6 @@ void CommandLineParser::parseOutputSelection()
 			CompilerOutputs::componentName(&CompilerOutputs::astCompactJson),
 			CompilerOutputs::componentName(&CompilerOutputs::asmJson),
 			CompilerOutputs::componentName(&CompilerOutputs::yulCFGJson),
-			CompilerOutputs::componentName(&CompilerOutputs::ssaCfgDot),
 			CompilerOutputs::componentName(&CompilerOutputs::ethdebug),
 		};
 		static std::set<std::string> const evmAssemblyJsonImportModeOutputs = {
@@ -522,6 +521,10 @@ void CommandLineParser::parseOutputSelection()
 
 	for (auto&& [optionName, outputComponent]: CompilerOutputs::componentMap())
 		m_options.compiler.outputs.*outputComponent = (m_args.count(optionName) > 0);
+
+	// Handle ssa-cfg-dot separately since it takes a value
+	if (m_args.count("ssa-cfg-dot"))
+		m_options.compiler.outputs.ssaCfgDot = m_args["ssa-cfg-dot"].as<std::string>();
 
 	if (m_options.input.mode == InputMode::Assembler && m_options.compiler.outputs == CompilerOutputs{})
 	{
@@ -793,7 +796,11 @@ General Information)").c_str(),
 		(CompilerOutputs::componentName(&CompilerOutputs::metadata).c_str(), "Combined Metadata JSON whose IPFS hash is stored on-chain.")
 		(CompilerOutputs::componentName(&CompilerOutputs::storageLayout).c_str(), "Slots, offsets and types of the contract's state variables located in storage.")
 		(CompilerOutputs::componentName(&CompilerOutputs::transientStorageLayout).c_str(), "Slots, offsets and types of the contract's state variables located in transient storage.")
-		(CompilerOutputs::componentName(&CompilerOutputs::ssaCfgDot).c_str(), "Output SSA-CFG Yul as dot graph.");
+		(
+			"ssa-cfg-dot",
+			po::value<std::string>()->value_name("mode")->default_value(""),
+			"Output SSA-CFG as DOT graph. Mode can be: cfg (basic CFG), liveness (with liveness info), stacklayout (with stack layouts)."
+		);
 	;
 	if (!_forHelp) // Note: We intentionally keep this undocumented for now.
 	{
