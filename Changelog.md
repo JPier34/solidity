@@ -1,6 +1,8 @@
 ### 0.8.34 (unreleased)
 
 Language Features:
+ * Constant Evaluator: Introduced support for string literals.
+ * General: Added new built-in `erc7201` that computes a location from an arbitrary string identifier.
 
 Compiler Features:
 * Yul Optimizer: Remove redundant prerequisite steps from the default optimizer sequence.
