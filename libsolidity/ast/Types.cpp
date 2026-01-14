@@ -404,7 +404,7 @@ std::set<FunctionDefinition const*, ASTNode::CompareByID> Type::operatorDefiniti
 				*identifierPath->annotation().referencedDeclaration
 			);
 			auto const* functionType = dynamic_cast<FunctionType const*>(
-				functionDefinition.libraryFunction() ? functionDefinition.typeViaContractName() : functionDefinition.type()
+				functionDefinition.libraryFunction() ? functionDefinition.typeViaContractName(false) : functionDefinition.type()
 			);
 			solAssert(functionType && !functionType->parameterTypes().empty());
 
@@ -426,7 +426,7 @@ MemberList::MemberMap Type::attachedFunctions(Type const& _type, ASTNode const& 
 		if (!_name)
 			_name = _function.name();
 		Type const* functionType =
-			_function.libraryFunction() ? _function.typeViaContractName() : _function.type();
+			_function.libraryFunction() ? _function.typeViaContractName(false) : _function.type();
 		solAssert(functionType, "");
 		FunctionType const* withBoundFirstArgument =
 			dynamic_cast<FunctionType const&>(*functionType).withBoundFirstArgument();
@@ -3715,7 +3715,9 @@ bool FunctionType::isPure() const
 		m_kind == Kind::Wrap ||
 		m_kind == Kind::Unwrap ||
 		m_kind == Kind::BytesConcat ||
-		m_kind == Kind::StringConcat;
+		m_kind == Kind::StringConcat ||
+		m_kind == Kind::Error ||
+		m_kind == Kind::Declaration;
 }
 
 TypePointers FunctionType::parseElementaryTypeVector(strings const& _types)
@@ -3976,21 +3978,27 @@ MemberList::MemberMap TypeType::nativeMembers(ASTNode const* _currentScope) cons
 				if (declaration->name().empty())
 					continue;
 
-				if (!contract.isLibrary() && inDerivingScope && declaration->isVisibleInDerivedContracts())
+				if (contract.isLibrary())
 				{
-					if (
-						auto const* functionDefinition = dynamic_cast<FunctionDefinition const*>(declaration);
-						functionDefinition && !functionDefinition->isImplemented()
-					)
-						members.emplace_back(declaration, declaration->typeViaContractName());
-					else
-						members.emplace_back(declaration, declaration->type());
+					// In case the contract is library, add only visible library members. visibility >= Internal.
+					if (declaration->isVisibleAsLibraryMember())
+						members.emplace_back(declaration, declaration->typeViaContractName(inDerivingScope));
 				}
-				else if (
-					(contract.isLibrary() && declaration->isVisibleAsLibraryMember()) ||
-					declaration->isVisibleViaContractTypeAccess()
-				)
-					members.emplace_back(declaration, declaration->typeViaContractName());
+				else if (inDerivingScope)
+				{
+					// In case of regular contract (not library) and member is in the same deriving scope, add all
+					// members which are not private. Private members cannot be accessed via contract type name
+					// i.e C.fooPrivate.
+					if (declaration->visibility() > Visibility::Private)
+						members.emplace_back(declaration, declaration->typeViaContractName(inDerivingScope));
+				}
+				else
+				{
+					// In case of regular contract being accessed from by external contract (not in deriving scope),
+					// add only externally visible members.
+					if (declaration->isVisibleViaContractTypeAccess())
+						members.emplace_back(declaration, declaration->typeViaContractName(inDerivingScope));
+				}
 			}
 		}
 	}

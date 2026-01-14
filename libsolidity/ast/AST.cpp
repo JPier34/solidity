@@ -491,17 +491,31 @@ Type const* FunctionDefinition::type() const
 	return TypeProvider::function(*this, FunctionType::Kind::Internal);
 }
 
-Type const* FunctionDefinition::typeViaContractName() const
+Type const* FunctionDefinition::typeViaContractName(bool inDerivingScope) const
 {
+	solAssert(
+		libraryFunction() || visibility() != Visibility::Private,
+		"Non-library private member functions are not visible via contract type name."
+	);
 	if (libraryFunction())
 	{
 		if (isPublic())
+			// If Lib.foo is public or external, an external call (delegate call) is used.
 			return FunctionType(*this).asExternallyCallableFunction(true);
 		else
-			return TypeProvider::function(*this, FunctionType::Kind::Internal);
+			// For private or internal visibility, internal call is used.
+			return type();
 	}
+	else if (inDerivingScope && Declaration::isVisibleInContract() && isImplemented())
+		// If call is in deriving scope, function is visible in contract (non-external) and it has an implementation,
+		// internal call is used.
+		return type();
 	else
+		// If function is not in deriving scope or is external or has no implementation, it cannot be called.
+		// In case of accessing via contract name, only declaration is available, to be used in non calling context.
+		// I.e. to access function selector `C.foo.selector` where foo has external visibility.
 		return TypeProvider::function(*this, FunctionType::Kind::Declaration);
+
 }
 
 std::string FunctionDefinition::externalSignature() const
@@ -952,7 +966,7 @@ FunctionType const* UnaryOperation::userDefinedFunctionType() const
 	FunctionDefinition const* userDefinedFunction = *annotation().userDefinedFunction;
 	return dynamic_cast<FunctionType const*>(
 		userDefinedFunction->libraryFunction() ?
-		userDefinedFunction->typeViaContractName() :
+		userDefinedFunction->typeViaContractName(false) :
 		userDefinedFunction->type()
 	);
 }
@@ -965,7 +979,7 @@ FunctionType const* BinaryOperation::userDefinedFunctionType() const
 	FunctionDefinition const* userDefinedFunction = *annotation().userDefinedFunction;
 	return dynamic_cast<FunctionType const*>(
 		userDefinedFunction->libraryFunction() ?
-		userDefinedFunction->typeViaContractName() :
+		userDefinedFunction->typeViaContractName(false) :
 		userDefinedFunction->type()
 	);
 }

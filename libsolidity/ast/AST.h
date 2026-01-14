@@ -299,7 +299,7 @@ public:
 
 	/// @returns the type for members of the containing contract type that refer to this declaration.
 	/// This can only be called once types of variable declarations have already been resolved.
-	virtual Type const* typeViaContractName() const { return type(); }
+	virtual Type const* typeViaContractName(bool) const { return type(); }
 
 	/// @param _internal false indicates external interface is concerned, true indicates internal interface is concerned.
 	/// @returns null when it is not accessible as a function.
@@ -1053,7 +1053,7 @@ public:
 	std::string externalIdentifierHex() const;
 
 	Type const* type() const override;
-	Type const* typeViaContractName() const override;
+	Type const* typeViaContractName(bool _inDerivingScope) const override;
 
 	/// @param _internal false indicates external interface is concerned, true indicates internal interface is concerned.
 	/// @returns null when it is not accessible as a function.
