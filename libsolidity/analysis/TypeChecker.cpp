@@ -3247,22 +3247,71 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 		annotation.isLValue = false;
 	else if (TypeType const* typeType = dynamic_cast<decltype(typeType)>(exprType))
 	{
-		if (ContractType const* contractType = dynamic_cast<decltype(contractType)>(typeType->actualType()))
+		if (typeType->actualType()->category() == Type::Category::Contract)
 		{
+			// ContractType has only user defined members, so annotation.referencedDeclaration is not `NULL`.
+			// See `ContractType::nativeMembers` for details.
+			solAssert(annotation.referencedDeclaration);
 			annotation.isLValue = annotation.referencedDeclaration->isLValue();
+			// Expressions like `C.foo`, `C.Ev` are pure and they must generate `Statement has no effect.` warning.
+			// TODO: However, in case a function this does not allow to assign the expression to a constant variable,
+			// TODO: because of different kind. Left-hand side of the variable declaration never has `Declaration` kind.
 			if (
-				auto const* functionType = dynamic_cast<FunctionType const*>(annotation.type);
-				functionType &&
-				functionType->kind() == FunctionType::Kind::Declaration
+				auto const* functionTypeMember = dynamic_cast<FunctionType const*>(annotation.type);
+				functionTypeMember &&
+				(
+					functionTypeMember->isPure() ||
+					functionTypeMember->kind() == FunctionType::Kind::Internal ||
+					functionTypeMember->kind() == FunctionType::Kind::Event
+				)
 			)
-				annotation.isPure = *_memberAccess.expression().annotation().isPure;
+				annotation.isPure = true;
+			else if (
+				auto const* typeTypeMember = dynamic_cast<TypeType const*>(annotation.type);
+				typeTypeMember &&
+				(
+					typeTypeMember->actualType()->category() == Type::Category::Struct ||
+					typeTypeMember->actualType()->category() == Type::Category::Enum
+				)
+			)
+				annotation.isPure = true;
+			// In case `Base.value` or `Lib.value` and when `value` is constant, the expression is pure.
+			else if (
+				auto const* varDeclMember = dynamic_cast<VariableDeclaration const*>(annotation.referencedDeclaration);
+				varDeclMember &&
+				varDeclMember->isConstant()
+			)
+				annotation.isPure = true;
 		}
 		else
 			annotation.isLValue = false;
 	}
 	else if (exprType->category() == Type::Category::Module)
 	{
-		annotation.isPure = *_memberAccess.expression().annotation().isPure;
+		// Very similar as for `ContractType`, but additionally we have to handle `Mod.C` case, where `C` in contract
+		// defined in module `Mod`.
+		if (auto const* functionTypeMember = dynamic_cast<FunctionType const*>(annotation.type);
+			functionTypeMember &&
+			(
+				functionTypeMember->isPure() ||
+				functionTypeMember->kind() == FunctionType::Kind::Internal ||
+				functionTypeMember->kind() == FunctionType::Kind::Event
+			)
+		)
+			annotation.isPure = true;
+		else if (
+			auto const* typeTypeMember = dynamic_cast<TypeType const*>(annotation.type);
+			typeTypeMember &&
+			(
+				typeTypeMember->actualType()->category() == Type::Category::Struct ||
+				typeTypeMember->actualType()->category() == Type::Category::Enum ||
+				typeTypeMember->actualType()->category() == Type::Category::Contract
+			)
+		)
+			annotation.isPure = true;
+		else if (auto const* varDecl = dynamic_cast<VariableDeclaration const*>(annotation.referencedDeclaration))
+			annotation.isPure = varDecl->isConstant();
+
 		annotation.isLValue = false;
 	}
 	else
@@ -3321,14 +3370,6 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 		)
 			annotation.isPure = true;
 	}
-
-	if (
-		auto const* varDecl = dynamic_cast<VariableDeclaration const*>(annotation.referencedDeclaration);
-		!annotation.isPure.set() &&
-		varDecl &&
-		varDecl->isConstant()
-	)
-		annotation.isPure = true;
 
 	if (auto magicType = dynamic_cast<MagicType const*>(exprType))
 	{
@@ -3408,6 +3449,15 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 
 	if (!annotation.isPure.set())
 		annotation.isPure = false;
+
+	// Sanity check. For function type pure flag should be equal to
+	if (
+		auto const* funcType = dynamic_cast<FunctionType const*>(annotation.type);
+		funcType &&
+		funcType->kind() != FunctionType::Kind::Internal &&
+		funcType->kind() != FunctionType::Kind::Event
+	)
+		solAssert(funcType->isPure() == *annotation.isPure);
 
 	return false;
 }
