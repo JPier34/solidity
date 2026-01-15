@@ -292,6 +292,7 @@ private:
 					{
 						// top can go into the tail bit, swap it down
 						_ops.stack.swap(sourceOffset);
+						return true;
 					}
 					else
 					{
