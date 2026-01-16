@@ -1425,6 +1425,59 @@ void IRGeneratorForStatements::endVisit(FunctionCall const& _functionCall)
 		}
 		break;
 	}
+	case FunctionType::Kind::ERC7201:
+	{
+		solAssert(arguments.size() == 1);
+		Type const* argType = arguments.front()->annotation().type;
+		solAssert(argType, "");
+		if (dynamic_cast<StringLiteralType const*>(argType))
+		{
+			auto typedRational = ConstantEvaluator::tryEvaluate(_functionCall);
+			solAssert(std::holds_alternative<rational>(typedRational.value));
+			auto rationalValue = std::get<rational>(typedRational.value);
+			solAssert(rationalValue.denominator() == 1);
+			bigint value = rationalValue.numerator();
+			solAssert(value <= std::numeric_limits<u256>::max());
+			define(_functionCall) << formatNumber(u256(value)) << "\n";
+		}
+		else
+		{
+			// keccak256(keccak256(id) - 1) & ~0xff
+			Whiskers templ(R"(
+				let <inner> := keccak256(<argDataArea>, <argDataLength>)
+				let <sub> := sub(<inner>, 1)
+				let <converted> := <concatFunction>
+				let <outer> := keccak256(<convertedDataArea>, <convertedDataLength>)
+				let <erc7201> := and(<outer>, not(0xff))
+			)");
+
+			ArrayType const* stringType = TypeProvider::stringMemory();
+			IRVariable stringArg = convert(*arguments[0], *stringType);
+			std::string argDataArea = m_utils.arrayDataAreaFunction(*stringType) + "(" + stringArg.commaSeparatedList() + ")";
+			std::string argDataLength = m_utils.arrayLengthFunction(*stringType) + "(" + stringArg.commaSeparatedList() + ")";
+			auto inner = IRVariable(m_context.newYulVariable(), *TypeProvider::fixedBytes(32));
+			auto sub = IRVariable(m_context.newYulVariable(), *TypeProvider::fixedBytes(32));
+			std::string concatFunction = m_utils.bytesOrStringConcatFunction({TypeProvider::fixedBytes(32)}, FunctionType::Kind::BytesConcat) + "(" + sub.commaSeparatedList() + ")";
+			std::string converted = m_context.newYulVariable();
+			std::string convertedDataArea = m_utils.arrayDataAreaFunction(*TypeProvider::bytesMemory()) + "(" + converted + ")";
+			std::string convertedDataLength = m_utils.arrayLengthFunction(*TypeProvider::bytesMemory()) + "(" + converted + ")";
+			auto outer = IRVariable(m_context.newYulVariable(), *TypeProvider::fixedBytes(32));
+
+			templ("argDataLength", argDataLength);
+			templ("argDataArea", argDataArea);
+			templ("inner", inner.name());
+			templ("sub", sub.name());
+			templ("converted", converted);
+			templ("concatFunction", concatFunction);
+			templ("convertedDataArea", convertedDataArea);
+			templ("convertedDataLength", convertedDataLength);
+			templ("outer", outer.name());
+			templ("erc7201", IRVariable(_functionCall).name());
+
+			appendCode() << templ.render();
+		}
+		break;
+	}
 	case FunctionType::Kind::ArrayPop:
 	{
 		solAssert(functionType->hasBoundFirstArgument());
@@ -1725,19 +1778,6 @@ void IRGeneratorForStatements::endVisit(FunctionCall const& _functionCall)
 
 		appendCode() << templ.render();
 
-		break;
-	}
-	case FunctionType::Kind::ERC7201:
-	{
-		solAssert(arguments.size() == 1);
-		auto typedRational = ConstantEvaluator::tryEvaluate(_functionCall);
-		solAssert(std::holds_alternative<rational>(typedRational.value));
-		auto rationalValue = std::get<rational>(typedRational.value);
-		solAssert(rationalValue.denominator() == 1);
-		bigint value = rationalValue.numerator();
-		solAssert(value <= std::numeric_limits<u256>::max());
-
-		define(_functionCall) << formatNumber(u256(value)) << "\n";
 		break;
 	}
 	default:
