@@ -928,6 +928,61 @@ bool ExpressionCompiler::visit(FunctionCall const& _functionCall)
 			}
 			break;
 		}
+		case FunctionType::Kind::ERC7201:
+		{
+			solAssert(arguments.size() == 1);
+			Type const* argType = arguments.front()->annotation().type;
+			solAssert(argType, "");
+			arguments.front()->accept(*this);
+			if (dynamic_cast<StringLiteralType const*>(argType))
+			{
+				auto typedRational = ConstantEvaluator::tryEvaluate(_functionCall);
+				solAssert(std::holds_alternative<rational>(typedRational.value));
+				auto rationalValue = std::get<rational>(typedRational.value);
+				solAssert(rationalValue.denominator() == 1);
+				bigint value = rationalValue.numerator();
+				solAssert(value <= std::numeric_limits<u256>::max());
+				m_context << u256(value);
+			}
+			else if (*argType == *TypeProvider::stringMemory())
+			{
+				// keccak256(id)
+				ArrayUtils(m_context).retrieveLength(*TypeProvider::stringMemory());
+				m_context << Instruction::SWAP1 << u256(0x20) << Instruction::ADD;
+				m_context << Instruction::KECCAK256;
+				// keccak256(id) - 1
+				m_context << u256(1) << Instruction::SWAP1 << Instruction::SUB;
+				// keccak256(keccak256(id) - 1)
+				utils().fetchFreeMemoryPointer();
+				utils().packedEncode({TypeProvider::fixedBytes(32)}, TypePointers());
+				utils().toSizeAfterFreeMemoryPointer();
+				m_context << Instruction::KECCAK256;
+				// ~0xff
+				m_context << u256(0xff) << Instruction::NOT;
+				// keccak256(keccak256(id) - 1) & ~0xff
+				m_context << Instruction::AND;
+			}
+			else
+			{
+				// keccak256(id)
+				utils().fetchFreeMemoryPointer();
+				utils().packedEncode({argType}, TypePointers());
+				utils().toSizeAfterFreeMemoryPointer();
+				m_context << Instruction::KECCAK256;
+				// keccak256(id) - 1
+				m_context << u256(1) << Instruction::SWAP1 << Instruction::SUB;
+				// keccak256(keccak256(id) - 1)
+				utils().fetchFreeMemoryPointer();
+				utils().packedEncode({TypeProvider::fixedBytes(32)}, TypePointers());
+				utils().toSizeAfterFreeMemoryPointer();
+				m_context << Instruction::KECCAK256;
+				// ~0xff
+				m_context << u256(0xff) << Instruction::NOT;
+				// keccak256(keccak256(id) - 1) & ~0xff
+				m_context << Instruction::AND;
+			}
+			break;
+		}
 		case FunctionType::Kind::Event:
 		{
 			_functionCall.expression().accept(*this);
@@ -1523,17 +1578,6 @@ bool ExpressionCompiler::visit(FunctionCall const& _functionCall)
 		case FunctionType::Kind::MetaType:
 			// No code to generate.
 			break;
-		case FunctionType::Kind::ERC7201:
-		{
-			auto typedRational = ConstantEvaluator::tryEvaluate(_functionCall);
-			solAssert(std::holds_alternative<rational>(typedRational.value));
-			auto rationalValue = std::get<rational>(typedRational.value);
-			solAssert(rationalValue.denominator() == 1);
-			bigint value = rationalValue.numerator();
-			solAssert(value <= std::numeric_limits<u256>::max());
-			m_context << u256(value);
-			break;
-		}
 		}
 	}
 	return false;
