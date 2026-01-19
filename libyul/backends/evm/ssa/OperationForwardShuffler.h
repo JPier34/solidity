@@ -284,6 +284,7 @@ private:
 				{
 					if (
 						!_ops.isArgsCompatible(sourceOffset, sourceOffset) &&  // the offset isn't already in the right position wrt args
+						_ops.stack[sourceOffset] != _ops.stack.top() &&  // don't swap if same slot (would be a no-op)
 						(
 							!_ops.requiredInArgs(_ops.stack.top()) || // current top can go into tail, ie it's not required as arg or
 							_ops.stackStats.reachableCount(_ops.stack.top()) > 1 // there's more of it in reachable stack depth
