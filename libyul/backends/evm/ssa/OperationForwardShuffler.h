@@ -476,7 +476,8 @@ private:
 			if (
 				_ops.stack.swapReachable(offset) &&  // if we can swap it up
 				_ops.requiredInTail(_ops.stack[offset]) &&  // if we need the slot in tail
-				_ops.stackStats.tailCount(_ops.stack[offset]) == 0  // if we don't have the slot in tail right now
+				_ops.stackStats.tailCount(_ops.stack[offset]) == 0 &&  // if we don't have the slot in tail right now
+				!_ops.isArgsCompatible(offset, offset)  // don't swap away a slot already in correct args position
 			)
 			{
 				// find the lowest swappable slot in tail that needs to go to args, swap
@@ -566,6 +567,23 @@ private:
 		}
 
 		return bestSlot;
+	}
+
+	// Find a liveOut slot that is missing from the stack but can be freely generated (pushed).
+	// This handles cases like missing literals in liveOut that aren't on the stack.
+	// @returns the slot to push, or nullopt if no such slot exists.
+	static std::optional<Slot> findMissingFreelyGeneratableLiveOutSlot(Ops const& _ops)
+	{
+		for (auto const& [valueId, count]: _ops.targetStats.liveOut)
+		{
+			Slot slot = Slot::makeValueID(valueId);
+			if (
+				_ops.stack.canBeFreelyGenerated(slot) &&
+				_ops.stackStats.totalCount(slot) < _ops.targetMinCount(slot)
+			)
+				return slot;
+		}
+		return std::nullopt;
 	}
 
 	static bool dupDeepestRelevantTailSlot(Ops& _ops)
@@ -760,6 +778,13 @@ private:
 			// todo: in the future we'll want stack too deep handling here and
 			//		 dup up the args if possible or mload them by explicitly calling _stack.reportStackTooDeep(arg)
 			yulAssert(_stack.size() < _targetStats.targetSize);
+		}
+
+		if (auto missingSlot = findMissingFreelyGeneratableLiveOutSlot(ops))
+		{
+			// Push missing freely-generatable liveOut slot (e.g., literal)
+			if (!dupDeepSlotIfRequired(ops, _generateJunk))
+				_stack.push(*missingSlot);
 		}
 
 		{
