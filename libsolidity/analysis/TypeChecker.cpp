@@ -3239,8 +3239,35 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 
 	annotation.requiredLookup = requiredLookup;
 
+	// Sanity check. Variable declaration can only be a member of contract type, contract, module or struct.
+	if (dynamic_cast<VariableDeclaration const*>(annotation.referencedDeclaration))
+	{
+		if (exprType->category() == Type::Category::TypeType)
+		{
+			solAssert(
+				reinterpret_cast<TypeType const*>(exprType)->actualType()->category() == Type::Category::Contract,
+				"Variable member is available only for module, contract or struct"
+			);
+		} else
+		{
+			solAssert(
+				exprType->category() == Type::Category::Module ||
+				exprType->category() == Type::Category::Struct ||
+				exprType->category() == Type::Category::Contract,
+				"Variable member is only available for module, contract or struct");
+		}
+	}
+
 	if (auto const* structType = dynamic_cast<StructType const*>(exprType))
+	{
 		annotation.isLValue = !structType->dataStoredIn(DataLocation::CallData);
+
+		if (auto const* varDecl = dynamic_cast<VariableDeclaration const*>(annotation.referencedDeclaration))
+		{
+			annotation.isPure = varDecl->isConstant();
+			solAssert(!varDecl->isConstant(), "Struct member variables cannot be declared as constant.");
+		}
+	}
 	else if (exprType->category() == Type::Category::Array)
 		annotation.isLValue = false;
 	else if (exprType->category() == Type::Category::FixedBytes)
@@ -3253,64 +3280,66 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 			// See `ContractType::nativeMembers` for details.
 			solAssert(annotation.referencedDeclaration);
 			annotation.isLValue = annotation.referencedDeclaration->isLValue();
-			// Expressions like `C.foo`, `C.Ev` are pure and they must generate `Statement has no effect.` warning.
+			// Expressions like `C.foo;`, `C.Ev;` are pure and they must generate `Statement has no effect.` warning.
 			// TODO: However, in case a function this does not allow to assign the expression to a constant variable,
 			// TODO: because of different kind. Left-hand side of the variable declaration never has `Declaration` kind.
-			if (
-				auto const* functionTypeMember = dynamic_cast<FunctionType const*>(annotation.type);
-				functionTypeMember &&
-				(
+			if (auto const* functionTypeMember = dynamic_cast<FunctionType const*>(annotation.type))
+			{
+				if(
 					functionTypeMember->isPure() ||
 					functionTypeMember->kind() == FunctionType::Kind::Internal ||
 					functionTypeMember->kind() == FunctionType::Kind::Event
 				)
-			)
-				annotation.isPure = true;
-			else if (
-				auto const* typeTypeMember = dynamic_cast<TypeType const*>(annotation.type);
-				typeTypeMember &&
-				(
+					annotation.isPure = true;
+			}
+			else if (auto const* typeTypeMember = dynamic_cast<TypeType const*>(annotation.type))
+			{
+				solAssert(
 					typeTypeMember->actualType()->category() == Type::Category::Struct ||
-					typeTypeMember->actualType()->category() == Type::Category::Enum
-				)
-			)
+					typeTypeMember->actualType()->category() == Type::Category::Enum ||
+					// Note: We add Contract intentionally, to cover possible contract nesting case.
+					typeTypeMember->actualType()->category() == Type::Category::Contract ||
+					typeTypeMember->actualType()->category() == Type::Category::UserDefinedValueType,
+					"Impossible `TypeType` category as contract member."
+				);
 				annotation.isPure = true;
+			}
 			// In case `Base.value` or `Lib.value` and when `value` is constant, the expression is pure.
-			else if (
-				auto const* varDeclMember = dynamic_cast<VariableDeclaration const*>(annotation.referencedDeclaration);
-				varDeclMember &&
-				varDeclMember->isConstant()
-			)
-				annotation.isPure = true;
+			else if (auto const* varDecl = dynamic_cast<VariableDeclaration const*>(annotation.referencedDeclaration))
+				annotation.isPure = varDecl->isConstant();
 		}
 		else
 			annotation.isLValue = false;
 	}
 	else if (exprType->category() == Type::Category::Module)
 	{
-		// Very similar as for `ContractType`, but additionally we have to handle `Mod.C` case, where `C` in contract
-		// defined in module `Mod`.
-		if (auto const* functionTypeMember = dynamic_cast<FunctionType const*>(annotation.type);
-			functionTypeMember &&
-			(
+		if (auto const* functionTypeMember = dynamic_cast<FunctionType const*>(annotation.type))
+		{
+			solAssert(
 				functionTypeMember->isPure() ||
 				functionTypeMember->kind() == FunctionType::Kind::Internal ||
-				functionTypeMember->kind() == FunctionType::Kind::Event
-			)
-		)
+				functionTypeMember->kind() == FunctionType::Kind::Event,
+				"Impossible `FunctionType` category as module member."
+			);
 			annotation.isPure = true;
-		else if (
-			auto const* typeTypeMember = dynamic_cast<TypeType const*>(annotation.type);
-			typeTypeMember &&
-			(
+		}
+		else if (auto const* typeTypeMember = dynamic_cast<TypeType const*>(annotation.type))
+		{
+			solAssert(
 				typeTypeMember->actualType()->category() == Type::Category::Struct ||
 				typeTypeMember->actualType()->category() == Type::Category::Enum ||
-				typeTypeMember->actualType()->category() == Type::Category::Contract
-			)
-		)
+				typeTypeMember->actualType()->category() == Type::Category::Contract ||
+				typeTypeMember->actualType()->category() == Type::Category::UserDefinedValueType,
+				"Impossible `TypeType` category as module member."
+			);
+			annotation.isPure = true;
+		}
+		else if (annotation.type->category() == ModuleType::Category::Module)
 			annotation.isPure = true;
 		else if (auto const* varDecl = dynamic_cast<VariableDeclaration const*>(annotation.referencedDeclaration))
 			annotation.isPure = varDecl->isConstant();
+		else
+			solAssert(false, "Impossible module member type.");
 
 		annotation.isLValue = false;
 	}
