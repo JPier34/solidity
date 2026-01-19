@@ -685,6 +685,7 @@ private:
 			for (StackOffset offset: stackArgsRange(_ops.stack, _ops.targetStats.tailSize))
 				if (
 					offset != stackTop &&
+					_ops.stack[offset] != _ops.stack[stackTop] &&  // don't swap identical values (no-op)
 					_ops.stack.swapReachable(offset) &&
 					_ops.isArgsCompatible(offset, stackTop) &&
 					_ops.isArgsCompatible(stackTop, offset)
@@ -698,6 +699,7 @@ private:
 			for (StackOffset offset: stackArgsRange(_ops.stack, _ops.targetStats.tailSize))
 				if (
 					offset != stackTop &&
+					_ops.stack[offset] != _ops.stack[stackTop] &&  // don't swap identical values (no-op)
 					_ops.stack.swapReachable(offset) &&
 					!_ops.isArgsCompatible(offset, offset) &&
 					_ops.isArgsCompatible(stackTop, offset)
