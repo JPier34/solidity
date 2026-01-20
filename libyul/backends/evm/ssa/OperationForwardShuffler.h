@@ -282,9 +282,13 @@ private:
 
 				if (_ops.stack.dupReachable(sourceOffset))
 				{
+					// todo i don't think i need this honestly
+					// If sourceOffset has the same value as top, skip - no point swapping (no-op) or duping (already at top)
+					if (_ops.stack[sourceOffset] == _ops.stack.top())
+						continue;
+
 					if (
 						!_ops.isArgsCompatible(sourceOffset, sourceOffset) &&  // the offset isn't already in the right position wrt args
-						_ops.stack[sourceOffset] != _ops.stack.top() &&  // don't swap if same slot (would be a no-op)
 						(
 							!_ops.requiredInArgs(_ops.stack.top()) || // current top can go into tail, ie it's not required as arg or
 							_ops.stackStats.reachableCount(_ops.stack.top()) > 1 // there's more of it in reachable stack depth
@@ -378,7 +382,7 @@ private:
 			if (!_ops.requiredInArgs(_stack[stackTop]) && _ops.requiredInTail(_stack[stackTop]))
 			{
 				// if it's already in tail, pop
-				if (_ops.stackStats.tailCount(_stack[stackTop]) >= 1 && _ops.offsetInTargetArgsRegion(stackTop) || _ops.stackStats.tailCount(_stack[stackTop]) > 1)
+				if (_ops.stackStats.tailCount(_stack[stackTop]) >= 1 && (_ops.offsetInTargetArgsRegion(stackTop) || _stack.size() > _ops.targetStats.targetSize) || _ops.stackStats.tailCount(_stack[stackTop]) > 1)
 				{
 					_stack.pop();
 					return true;
