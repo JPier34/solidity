@@ -153,7 +153,7 @@ struct TraceRecorder {
 		// Header row with slot indices
 		std::cout << fmt::format("{:>12}|", "");
 		for (size_t i = 0; i < maxSlots; ++i)
-			std::cout << fmt::format("{:>6}", i);
+			std::cout << fmt::format("{:>7}", i);
 		std::cout << "\n";
 
 		// Data rows
@@ -165,11 +165,11 @@ struct TraceRecorder {
 				if (i < entry.stackAfter.size())
 				{
 					auto const& slot = entry.stackAfter[i];
-					std::string s = slot.isJunk() ? "*" : slotToString(slot);
-					std::cout << fmt::format("{:>6}", s);
+					std::string s = slot.isJunk() ? "*" : solidity::yul::ssa::slotToString(slot);
+					std::cout << fmt::format("{:>7}", s);
 				}
 				else
-					std::cout << "      ";
+					std::cout << "       ";
 			}
 			std::cout << "\n";
 		}
@@ -226,15 +226,35 @@ BOOST_AUTO_TEST_CASE(TestJunk)
 		Stack stack(data, {.hook = [&]{ std::cout << " -> " << ssa::stackToString(data) << std::endl; }});
 		ssa::OperationForwardShuffler<StackManipulationCallbacks>::shuffle(stack, args, liveness, 19, false);
 	}*/
-	{
+	/*{
 		TraceRecorder trace;
 		Stack::Data data = parseStackData("[JUNK, v12, phi9, phi13, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, v65, v67]");
 		Stack::Data args = parseStackData("[lit27, phi13, phi9, v12, v67]");
 		Liveness liveness = parseLiveness("[phi9, v12, phi13, v65]");
 
 		trace.entries.push_back({"(initial)", data});
-		Stack stack(data, {.hook = [&](std::string const& op){ trace.entries.push_back({op, data}); }});
+		Stack stack(data, {.hook = [&](std::string const& op){ std::cout << op << ", "; trace.entries.push_back({op, data}); }});
 		ssa::OperationForwardShuffler<StackManipulationCallbacks>::shuffle(stack, args, liveness, 21, false);
+	}*/
+	/*{
+		TraceRecorder trace;
+		Stack::Data data = parseStackData("[JUNK, JUNK, JUNK, JUNK, JUNK, v179, JUNK, phi233, phi234, phi236, v184, v185, JUNK, phi239, phi240, phi245, v188, JUNK, v190, v193, v194, phi253, JUNK, phi255, phi256, phi257, v197]");
+		Stack::Data args = parseStackData("[lit35, v197, phi255, phi257]");
+		Liveness liveness = parseLiveness("[v179, v184, v185, v188, v190, v193, v194, phi233, phi234, phi236, phi239, phi240, phi245, phi253, phi255, phi256]");
+
+		trace.entries.push_back({"(initial)", data});
+		Stack stack(data, {.hook = [&](std::string const& op){ std::cout << op << ", "; trace.entries.push_back({op, data}); }});
+		ssa::OperationForwardShuffler<StackManipulationCallbacks>::shuffle(stack, args, liveness, 25, false);
+	}*/
+	{
+		TraceRecorder trace;
+		Stack::Data data = parseStackData("[v2, v3, v4, v5, v6, v7, v8, v9, v10]");
+		Stack::Data args = parseStackData("[lit3, v9, v8, v7, v6, v5, v4, v3, v2, v10]");
+		Liveness liveness = parseLiveness("[v10]");
+
+		trace.entries.push_back({"(initial)", data});
+		Stack stack(data, {.hook = [&](std::string const& op){ std::cout << op << ", "; trace.entries.push_back({op, data}); }});
+		ssa::OperationForwardShuffler<StackManipulationCallbacks>::shuffle(stack, args, liveness, 17, false);
 	}
 	/*{
 		Stack::Data data = parseStackData("[JUNK, v12, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, v68, JUNK, phi111, v84, v86]");
