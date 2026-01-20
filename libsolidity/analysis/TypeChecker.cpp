@@ -4030,7 +4030,7 @@ void TypeChecker::endVisit(UsingForDirective const& _usingFor)
 
 		FunctionType const* functionType = dynamic_cast<FunctionType const*>(
 			functionDefinition.libraryFunction() ?
-				functionDefinition.typeViaContractName(false) :
+				functionDefinition.typeViaContractName() :
 				functionDefinition.type()
 			);
 
