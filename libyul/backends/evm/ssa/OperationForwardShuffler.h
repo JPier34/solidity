@@ -364,6 +364,7 @@ private:
 			{
 				for (StackOffset argsOffset: stackArgsRange(_stack, _ops.targetStats.tailSize))
 					if (
+						_stack[argsOffset] != _stack[stackTop] &&  // don't swap identical values (no-op)
 						_stack.swapReachable(argsOffset) &&
 						_ops.isArgsCompatible(stackTop, argsOffset) &&
 						!_ops.isArgsCompatible(argsOffset, argsOffset)
@@ -386,6 +387,7 @@ private:
 				// if we need it down there, try to swap down
 				for (StackOffset tailOffset: stackTailRange(_stack, _ops.targetStats.tailSize) | ranges::views::reverse)
 					if (
+						_stack[tailOffset] != _stack[stackTop] &&  // don't swap identical values (no-op)
 						_stack.swapReachable(tailOffset) &&  // we can reach the offset
 						!(_ops.requiredInTail(_stack[tailOffset]) && _ops.stackStats.tailCount(_stack[tailOffset]) <= 1)  // it's okay to swap the tail offset out
 					)
@@ -395,29 +397,36 @@ private:
 					}
 			}
 		}
-		// pop junk
+		// pop junk (but not if JUNK is exactly what's needed at that position)
 		for (StackOffset offset: stackSwapReachableRange(_stack))
-			if (_stack[offset].isJunk())
+			if (_stack[offset].isJunk() && !_ops.isArgsCompatible(offset, offset))
 			{
-				if (offset != stackTop)
+				if (offset != stackTop && _stack[offset] != _stack[stackTop])
 					_stack.swap(offset);
 				_stack.pop();
 				return true;
 			}
+
 		// pop something that can be freely generated except for literals
+		// (but not if it's already in a compatible position)
 		for (StackOffset offset: stackSwapReachableRange(_stack))
-			if (_stack.canBeFreelyGenerated(_stack[offset]) && !_stack[offset].isLiteralValueID())
+			if (
+				_stack.canBeFreelyGenerated(_stack[offset]) &&
+				!_stack[offset].isLiteralValueID() &&
+				!_ops.isArgsCompatible(offset, offset)
+			)
 			{
-				if (offset != stackTop)
+				if (offset != stackTop && _stack[offset] != _stack[stackTop])
 					_stack.swap(offset);
 				_stack.pop();
 				return true;
 			}
+
 		// pop anything that isn't in position and we have more than one of
 		for (StackOffset offset: stackSwapReachableRange(_stack))
 			if (_ops.stackStats.totalCount(_stack[offset]) > _ops.targetMinCount(_stack[offset]))
 			{
-				if (offset != stackTop)
+				if (offset != stackTop && _stack[offset] != _stack[stackTop])
 					_stack.swap(offset);
 				_stack.pop();
 				return true;
@@ -426,7 +435,7 @@ private:
 		for (StackOffset offset: stackSwapReachableRange(_stack))
 			if (_stack[offset].isLiteralValueID())
 			{
-				if (offset != stackTop)
+				if (offset != stackTop && _stack[offset] != _stack[stackTop])
 					_stack.swap(offset);
 				_stack.pop();
 				return true;
@@ -440,16 +449,22 @@ private:
 		for (StackOffset offset{_ops.targetStats.tailSize}; offset < _ops.targetStats.targetSize; ++offset.value)
 			if (
 				offset < _ops.stack.size() &&
-				!_ops.isArgsCompatible(offset, offset) &&  // the slot isn't in place
-				!_ops.stack.canBeFreelyGenerated(_ops.targetArg(offset))  // we can't just push it
+				!_ops.isArgsCompatible(offset, offset)
 			)
 			{
 				// find first occurrence of the slot
 				std::optional<StackDepth> depth = _ops.stack.findSlotDepth(_ops.targetArg(offset));
-				// it must exist according to shuffle admissibility criteria
-				yulAssert(depth);
-				if (!_ops.stack.swapReachable(*depth))
-					return false;
+
+				if (!depth)
+				{
+					// if there is no occurrence of the slot anywhere, we must be able to freely generate it
+					yulAssert(_ops.stack.canBeFreelyGenerated(_ops.targetArg(offset)));
+				}
+				else
+				{
+					if (!_ops.stack.swapReachable(*depth))
+						return false;
+				}
 			}
 		// distribution check: all we have to dup can be duped
 		for (StackOffset const offset: stackRange(_ops.stack))
@@ -680,7 +695,7 @@ private:
 					}
 			}
 			// try finding a slot that is compatible with the top and also admits the current top:
-			//		- could be that the top slot is used elsewhere in the args
+			//		- could be that the top slot is used elsewhere in the args (exclude junk)
 			//		- could be that the top slot is something that is only required in the tail
 			for (StackOffset offset: stackArgsRange(_ops.stack, _ops.targetStats.tailSize))
 				if (
@@ -688,7 +703,8 @@ private:
 					_ops.stack[offset] != _ops.stack[stackTop] &&  // don't swap identical values (no-op)
 					_ops.stack.swapReachable(offset) &&
 					_ops.isArgsCompatible(offset, stackTop) &&
-					_ops.isArgsCompatible(stackTop, offset)
+					_ops.isArgsCompatible(stackTop, offset) &&
+					!_ops.targetArbitrary(offset)
 				)
 				{
 					_ops.stack.swap(offset);
@@ -712,9 +728,12 @@ private:
 
 		// swap up any slot in args that is out of position and has a slot available in args that it can occupy
 		for (StackOffset offset: stackArgsRange(_ops.stack, _ops.targetStats.tailSize))
+		{
+			bool const reachable = _ops.stack.swapReachable(offset);
+			bool const identical = _ops.isArgsCompatible(offset, stackTop) && !_ops.targetArbitrary(stackTop);
 			if (
-				_ops.stack.swapReachable(offset) &&
-				!_ops.isArgsCompatible(offset, stackTop) && // we wouldn't just be swapping identical things
+				reachable &&
+				!identical && // we wouldn't just be swapping identical things
 				(
 					!_ops.isArgsCompatible(offset, offset) || // the slot at offset isn't final
 					(_ops.targetArbitrary(offset) && !_ops.stack.slot(offset).isJunk()) // or the target is arbitrary and the current slot isn't already junk
@@ -731,6 +750,7 @@ private:
 					return true;
 				}
 			}
+		}
 
 		// if we're at size and would have to push or dup something to satisfy args, try shrinking
 		if (_ops.stack.size() == _ops.targetStats.targetSize)
@@ -767,21 +787,24 @@ private:
 		yulAssert(_stack.size() <= _targetStats.targetSize, "I1 violated: Stack size too large");
 		if (!allNecessarySlotsReachableOrFinal(ops))
 		{
-			// if we need something in the tail, try swapping it down there, there must be a spot
-			// that can be swapped out (although it might be unreachable in which case we'll try to fix args
-			// and/or compress)
-			if (fixTailSlot(ops))
-				return true;
-
-			// if the stack reaches into the args region try fixing a slot in there
-			if (_stack.size() >= _targetStats.tailSize && fixArgsSlot(ops))
-				return true;
+			// !allNecessarySlotsReachableOrFinal(ops) ≡ ¬(∀s: reachable(s) ∨ final(s)) ≡ ∃s: ¬reachable(s) ∧ ¬final(s)
 			if (shrinkStack(_stack, ops))
 				return true;
+
 			// todo: in the future we'll want stack too deep handling here and
 			//		 dup up the args if possible or mload them by explicitly calling _stack.reportStackTooDeep(arg)
-			yulAssert(_stack.size() < _targetStats.targetSize);
+			yulAssert(false);
 		}
+
+		// if we need something in the tail, try swapping it down there, there must be a spot
+		// that can be swapped out (although it might be unreachable in which case we'll try to fix args
+		// and/or compress)
+		if (fixTailSlot(ops))
+			return true;
+
+		// if the stack reaches into the args region try fixing a slot in there
+		if (_stack.size() >= _targetStats.tailSize && fixArgsSlot(ops))
+			return true;
 
 		if (auto missingSlot = findMissingFreelyGeneratableLiveOutSlot(ops))
 		{
@@ -847,6 +870,7 @@ private:
 		{
 			if (dupDeepSlotIfRequired(ops, _generateJunk))
 				return true;
+
 			{
 				StackOffset const targetOffset{_stack.size()};
 				if (ops.stackStats.totalCount(ops.targetArg(targetOffset)) < ops.targetMinCount(ops.targetArg(targetOffset)))
@@ -917,7 +941,10 @@ private:
 				!ops.isArgsCompatible(offset, offset) &&
 				!ops.isSourceCompatible(offset, stackTopOffset) &&
 				ops.isArgsCompatible(offset, stackTopOffset) &&
-				ops.isArgsCompatible(stackTopOffset, offset)
+				ops.isArgsCompatible(stackTopOffset, offset) // &&
+				// At least one slot must become exactly correct with a non-JUNK target to make progress
+				//((!ops.targetArbitrary(stackTopOffset) && ops.targetArg(stackTopOffset) == _stack[offset]) ||
+				// (!ops.targetArbitrary(offset) && ops.targetArg(offset) == _stack[stackTopOffset]))
 			)
 			{
 				_stack.swap(offset);
