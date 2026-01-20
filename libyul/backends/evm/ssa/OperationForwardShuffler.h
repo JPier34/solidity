@@ -486,6 +486,29 @@ private:
 					return false;
 			}
 
+		/*// check that slots in args that need to go to tail have a reachable swap target in the tail
+		for (StackOffset offset: stackArgsRange(_ops.stack, _ops.targetStats.tailSize))
+			if (
+				_ops.requiredInTail(_ops.stack[offset]) &&
+				_ops.stackStats.tailCount(_ops.stack[offset]) == 0 &&
+				!_ops.isArgsCompatible(offset, offset)
+			)
+			{
+				// need to find a reachable slot in tail to swap with
+				bool foundSwapTarget = false;
+				for (StackOffset tailOffset: stackTailRange(_ops.stack, _ops.targetStats.tailSize))
+					if (
+						_ops.stack.swapReachable(tailOffset) &&
+						(!_ops.requiredInTail(_ops.stack[tailOffset]) || _ops.stackStats.tailCount(_ops.stack[tailOffset]) > 1)
+					)
+					{
+						foundSwapTarget = true;
+						break;
+					}
+				if (!foundSwapTarget)
+					return false;
+			}*/
+
 		return true;
 	}
 
@@ -570,13 +593,16 @@ private:
 			if (!_ops.stack.dupReachable(offset))
 				continue;
 
-			// Calculate deficit: how many more of this slot do we need for liveOut?
+			// Calculate deficit: how many more of this slot do we need?
+			// Uses targetMinCount which includes both liveOut and args requirements
+			int currentCount = static_cast<int>(_ops.stackStats.totalCount(slot));
+
 			int liveOutCount = 0;
 			if (slot.isValueID() && _ops.targetStats.liveOut.contains(slot.valueID()))
 				liveOutCount = static_cast<int>(_ops.targetStats.liveOut.count(slot.valueID()));
+			// int deficit = liveOutCount - currentCount;
 
-			int currentCount = static_cast<int>(_ops.stackStats.totalCount(slot));
-			int deficit = liveOutCount - currentCount;
+			int deficit = static_cast<int>(_ops.targetMinCount(slot)) - currentCount;
 
 			// Update best if this deficit is higher
 			if (deficit > bestDeficit)
@@ -894,6 +920,7 @@ private:
 			}
 
 			// if we can't directly produce targetOffset, take the deepest arg that we don't have enough of and dup/push that
+			// First, prioritize duping args that are on the stack over pushing freely-generatable ones
 			for (StackOffset offset{ops.targetStats.tailSize}; offset < ops.targetStats.targetSize; ++offset.value)
 			{
 				Slot const& arg = ops.targetArg(offset);
