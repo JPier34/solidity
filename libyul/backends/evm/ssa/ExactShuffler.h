@@ -63,8 +63,10 @@ void shuffleStackExact(Stack& _stack, typename Stack::Data const& _target, SSACF
 	_stack,
 	{}, transformedTarget
 	);*/
-	//std::cout << "yay: " << stackToString(_stack.data()) << std::endl;
-	//std::cout << "yay to: " << stackToString(transformedTarget) << std::endl;
+	#if !defined(NDEBUG)
+	std::cout << "yay: " << stackToString(_stack.data()) << std::endl;
+	std::cout << "yay to: " << stackToString(transformedTarget) << std::endl;
+	#endif
 	OperationForwardShuffler<typename Stack::Callbacks>::shuffle(
 		_stack,
 		transformedTarget, {}, transformedTarget.size(), false
