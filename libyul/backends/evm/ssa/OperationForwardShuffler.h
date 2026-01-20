@@ -277,7 +277,7 @@ private:
 
 				// if we need this in args and we have the same above but outside args, or we can introduce junk and
 				// there is more of the same further up in the stack, skip it
-				if ((neededInArgs && haveMoreAboveWithoutArgs) || (_generateJunk && haveMoreAbove))
+				if ((neededInArgs && haveMoreAboveWithoutArgs) || (haveMoreAbove))
 					continue;
 
 				if (_ops.stack.dupReachable(sourceOffset))
