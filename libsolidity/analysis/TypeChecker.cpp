@@ -3258,7 +3258,32 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 		}
 	}
 
-	if (auto const* structType = dynamic_cast<StructType const*>(exprType))
+	if (dynamic_cast<ContractType const*>(exprType))
+	{
+		// When contract is constant its members are also constant.
+		if (dynamic_cast<FunctionDefinition const*>(annotation.referencedDeclaration))
+		{
+			annotation.isPure = *_memberAccess.expression().annotation().isPure;
+			solAssert(
+				annotation.type->category() == FunctionType::Category::Function,
+				"Impossible declaration type for function definition access"
+			);
+			auto const* funcType = reinterpret_cast<FunctionType const*>(annotation.type);
+			// In case when internal library function is attached to contract, function call kind is internal.
+			solAssert(
+				funcType->kind() == FunctionType::Kind::Internal ||
+				funcType->kind() == FunctionType::Kind::External,
+				"Impossible function call kind for contract type member."
+			);
+		}
+		else if (auto const* varDecl = dynamic_cast<VariableDeclaration const*>(annotation.referencedDeclaration))
+			annotation.isPure = *_memberAccess.expression().annotation().isPure && varDecl->isConstant();
+		else
+			solAssert(false,"Impossible declaration type for contact member.");
+
+		annotation.isLValue = false;
+	}
+	else if (auto const* structType = dynamic_cast<StructType const*>(exprType))
 	{
 		annotation.isLValue = !structType->dataStoredIn(DataLocation::CallData);
 
@@ -3367,6 +3392,7 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 		annotation.isLValue = false;
 	}
 	else
+		// TODO: Is it ok? I.e. it used to set false for ContractType member
 		annotation.isLValue = false;
 
 	// TODO some members might be pure, but for example `address(0x123).balance` is not pure
@@ -3506,6 +3532,7 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 	if (
 		auto const* funcType = dynamic_cast<FunctionType const*>(annotation.type);
 		funcType &&
+		funcType->kind() != FunctionType::Kind::External &&
 		funcType->kind() != FunctionType::Kind::Internal &&
 		funcType->kind() != FunctionType::Kind::Event
 	)
