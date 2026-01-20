@@ -3287,10 +3287,22 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 			{
 				if(
 					functionTypeMember->isPure() ||
-					functionTypeMember->kind() == FunctionType::Kind::Internal ||
 					functionTypeMember->kind() == FunctionType::Kind::Event
 				)
 					annotation.isPure = true;
+				else if (functionTypeMember->kind() == FunctionType::Kind::Internal)
+				{
+					if (auto const* vDecl = dynamic_cast<VariableDeclaration const*>(annotation.referencedDeclaration))
+						annotation.isPure = vDecl->isConstant();
+					else if (dynamic_cast<FunctionDefinition const*>(annotation.referencedDeclaration))
+						annotation.isPure = true;
+
+					solAssert(
+						dynamic_cast<VariableDeclaration const*>(annotation.referencedDeclaration) ||
+						dynamic_cast<FunctionDefinition const*>(annotation.referencedDeclaration),
+						"Impossible declaration type for internal function call kind"
+					);
+				}
 			}
 			else if (auto const* typeTypeMember = dynamic_cast<TypeType const*>(annotation.type))
 			{
@@ -3315,13 +3327,24 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 	{
 		if (auto const* functionTypeMember = dynamic_cast<FunctionType const*>(annotation.type))
 		{
-			solAssert(
+			if(
 				functionTypeMember->isPure() ||
-				functionTypeMember->kind() == FunctionType::Kind::Internal ||
-				functionTypeMember->kind() == FunctionType::Kind::Event,
-				"Impossible `FunctionType` category as module member."
-			);
-			annotation.isPure = true;
+				functionTypeMember->kind() == FunctionType::Kind::Event
+			)
+				annotation.isPure = true;
+			else if (functionTypeMember->kind() == FunctionType::Kind::Internal)
+			{
+				if (auto const* vDecl = dynamic_cast<VariableDeclaration const*>(annotation.referencedDeclaration))
+					annotation.isPure = vDecl->isConstant();
+				else if (dynamic_cast<FunctionDefinition const*>(annotation.referencedDeclaration))
+					annotation.isPure = true;
+
+				solAssert(
+					dynamic_cast<VariableDeclaration const*>(annotation.referencedDeclaration) ||
+					dynamic_cast<FunctionDefinition const*>(annotation.referencedDeclaration),
+					"Impossible declaration type for internal function call kind"
+				);
+			}
 		}
 		else if (auto const* typeTypeMember = dynamic_cast<TypeType const*>(annotation.type))
 		{
