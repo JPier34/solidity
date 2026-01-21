@@ -3998,7 +3998,7 @@ MemberList::MemberMap TypeType::nativeMembers(ASTNode const* _currentScope) cons
 						declaration->typeViaContractName(Declaration::ContractNameAccessKind::Local)
 					);
 				}
-				else if (!contract.isLibrary() && !inDerivingScope && declaration->isVisibleViaContractTypeAccess())
+				else if (!contract.isLibrary() && !inDerivingScope && declaration->isVisibleViaContractInstantce())
 				{
 					// In case of regular contract (not library) being accessed from foreign contract (not in deriving
 					// scope), add only externally visible members.

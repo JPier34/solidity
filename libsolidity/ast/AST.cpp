@@ -513,7 +513,7 @@ Type const* FunctionDefinition::typeViaContractName(ContractNameAccessKind _acce
 		case ContractNameAccessKind::Foreign:
 		{
 			solAssert(!libraryFunction(), "Non-library members cannot be accessed via library name.");
-			solAssert(isVisibleViaContractTypeAccess(), "Externally invisible member accessed via contract name.");
+			solAssert(isVisibleViaContractInstantce(), "Externally invisible member accessed via contract name.");
 			// Foreign contract member function being accessed via contract type name, cannot be called.
 			return TypeProvider::function(*this, FunctionType::Kind::Declaration);
 		}
@@ -529,6 +529,8 @@ Type const* FunctionDefinition::typeViaContractName(ContractNameAccessKind _acce
 				// For private or internal visibility, internal call is used.
 				return type();
 		}
+		default:
+			solAssert(false, "Unimplemented contract member access kind.");
 	}
 }
 

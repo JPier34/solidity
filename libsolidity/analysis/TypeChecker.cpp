@@ -3310,7 +3310,7 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 			// TODO: because of different kind. Left-hand side of the variable declaration never has `Declaration` kind.
 			if (auto const* functionTypeMember = dynamic_cast<FunctionType const*>(annotation.type))
 			{
-				if(
+				if (
 					functionTypeMember->isPure() ||
 					functionTypeMember->kind() == FunctionType::Kind::Event
 				)
@@ -3352,7 +3352,7 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 	{
 		if (auto const* functionTypeMember = dynamic_cast<FunctionType const*>(annotation.type))
 		{
-			if(
+			if (
 				functionTypeMember->isPure() ||
 				functionTypeMember->kind() == FunctionType::Kind::Event
 			)

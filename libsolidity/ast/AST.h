@@ -275,7 +275,7 @@ public:
 	virtual bool isVisibleInContract() const { return visibility() != Visibility::External; }
 	virtual bool isVisibleInDerivedContracts() const { return isVisibleInContract() && visibility() >= Visibility::Internal; }
 	bool isVisibleAsLibraryMember() const { return visibility() >= Visibility::Internal; }
-	virtual bool isVisibleViaContractTypeAccess() const { return false; }
+	virtual bool isVisibleViaContractInstantce() const { return false; }
 
 	virtual bool isLValue() const { return false; }
 	virtual bool isPartOfExternalInterface() const { return false; }
@@ -787,7 +787,7 @@ public:
 	Type const* type() const override;
 
 	bool isVisibleInDerivedContracts() const override { return true; }
-	bool isVisibleViaContractTypeAccess() const override { return true; }
+	bool isVisibleViaContractInstantce() const override { return true; }
 
 	StructDeclarationAnnotation& annotation() const override;
 
@@ -815,7 +815,7 @@ public:
 	void accept(ASTConstVisitor& _visitor) const override;
 
 	bool isVisibleInDerivedContracts() const override { return true; }
-	bool isVisibleViaContractTypeAccess() const override { return true; }
+	bool isVisibleViaContractInstantce() const override { return true; }
 
 	std::vector<ASTPointer<EnumValue>> const& members() const { return m_members; }
 
@@ -877,7 +877,7 @@ public:
 	TypeDeclarationAnnotation& annotation() const override;
 
 	TypeName const* underlyingType() const { return m_underlyingType.get(); }
-	bool isVisibleViaContractTypeAccess() const override { return true; }
+	bool isVisibleViaContractInstantce() const override { return true; }
 
 private:
 	/// The name of the underlying type
@@ -1044,7 +1044,7 @@ public:
 	{
 		return isOrdinary() && Declaration::isVisibleInContract();
 	}
-	bool isVisibleViaContractTypeAccess() const override
+	bool isVisibleViaContractInstantce() const override
 	{
 		solAssert(!isFree(), "");
 		return isOrdinary() && visibility() >= Visibility::Public;
@@ -1324,7 +1324,7 @@ public:
 	FunctionTypePointer functionType(bool /*_internal*/) const override;
 
 	bool isVisibleInDerivedContracts() const override { return true; }
-	bool isVisibleViaContractTypeAccess() const override { return true; }
+	bool isVisibleViaContractInstantce() const override { return true; }
 
 	EventDefinitionAnnotation& annotation() const override;
 
@@ -1368,7 +1368,7 @@ public:
 	FunctionTypePointer functionType(bool _internal) const override;
 
 	bool isVisibleInDerivedContracts() const override { return true; }
-	bool isVisibleViaContractTypeAccess() const override { return true; }
+	bool isVisibleViaContractInstantce() const override { return true; }
 
 	ErrorDefinitionAnnotation& annotation() const override;
 
