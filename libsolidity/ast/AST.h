@@ -304,6 +304,9 @@ public:
 	/// This can only be called once types of variable declarations have already been resolved.
 	/// I.e. when accessing a member from a contract which is not in the same deriving scope.
 	virtual Type const* typeViaForeignContractName() const { return type(); }
+	/// @returns the type for members when accessing via library name.
+	/// This can only be called once types of variable declarations have already been resolved.
+	virtual Type const* typeViaLibraryName() const { return type(); }
 
 	/// @param _internal false indicates external interface is concerned, true indicates internal interface is concerned.
 	/// @returns null when it is not accessible as a function.
@@ -1059,6 +1062,7 @@ public:
 	Type const* type() const override;
 	Type const* typeViaContractName() const override;
 	Type const* typeViaForeignContractName() const override;
+	Type const* typeViaLibraryName() const override;
 
 	/// @param _internal false indicates external interface is concerned, true indicates internal interface is concerned.
 	/// @returns null when it is not accessible as a function.
