@@ -705,12 +705,25 @@ Error Types
 Experimental Mode
 *****************
 
-Experimental mode has been introduced as of version 0.8.34 as an additional safeguard when using experimental features.
-Prior to version 0.8.34, all experimental features not requiring an explicit ``pragma experimental ...`` in source file(s)
-were freely available to be used without any additional safeguards. Given that experimental features are sparsely documented,
-if at all, often not adequately tested, and thus not intended for production use, we decided to add  the ``--experimental``
-flag to the command line interface, and the analogous ``settings.experimental`` boolean setting to the Standard JSON interface.
-Going forward, usage of any experimental feature will require the experimental mode to be toggled.
+Some language and compiler features included in stable releases are not themselves considered stable.
+They are sparsely documented, if at all, often not adequately tested, and thus not yet intended for production use.
+In many cases it is possible to develop a big feature incrementally, with each iteration being already stable.
+Sometimes, however, it is preferable to start with a prototype and stabilize it over multiple releases, while receiving feedback from users.
+To prevent accidental use, such features can be only accessed by enabling the experimental mode.
+There are no backwards compatibility guarantees for experimental features.
+They are subject to change in breaking ways in non-breaking releases of the compiler.
+Only major changes affecting them are recorded in the changelog.
+To enable the experimental mode, use the ``--experimental`` flag on the command line,
+or the analogous ``settings.experimental`` boolean setting in the Standard JSON input.
+Note that the use of this mode is recorded in the metadata:
+- ``experimental`` flag in CBOR metadata is set to ``true``,
+- ``settings.experimental`` in JSON metadata is set to ``true``,
+
+.. note::
+    Prior to version 0.8.34, most of the experimental features were usable without any extra safeguards.
+    Some were gated behind ``pragma experimental``, but this was not done consistently.
+    The information about them was also only recorded in CBOR metadata and even then not always.
+    The main goal of the experimental mode is to systematize this and make users fully when they are relying on features which are unfinished or not production-ready.
 
 The table below details all currently available experimental features.
 
@@ -723,17 +736,15 @@ The table below details all currently available experimental features.
 +-----------------------+--------------------------+------------------+-------------------------------------------------------------------+
 | EVM Assembly import   | ``evmasm-import``        | yes              | ``--import-asm-json``                                             |
 +-----------------------+--------------------------+------------------+-------------------------------------------------------------------+
-| Generic Solidity      | ``generic-solidity``     | yes              | ``pragma experimental solidity``                                  |
+| Core Solidity         | ``core-solidity``        | yes              | ``pragma experimental solidity``                                  |
 +-----------------------+--------------------------+------------------+-------------------------------------------------------------------+
 | IR AST                | ``ir-ast``               | no               | ``--ir-ast-json``, ``--ir-optimized-ast-json``                    |
 +-----------------------+--------------------------+------------------+-------------------------------------------------------------------+
 | EOF                   | ``eof``                  | yes              | ``--eof-version``                                                 |
 +-----------------------+--------------------------+------------------+-------------------------------------------------------------------+
-| Osaka EVM             | ``evm-osaka``            | yes              | ``--evm-version osaka``                                           |
+| Non-mainnet EVMs      | ``evm``                  | yes              | ``--evm-version <version name>``                                  |
 +-----------------------+--------------------------+------------------+-------------------------------------------------------------------+
 | Ethdebug              | ``ethdebug``             | no               | ``--ethdebug``, ``--ethdebug-runtime``, ``--debug-info ethdebug`` |
 +-----------------------+--------------------------+------------------+-------------------------------------------------------------------+
 | Yul SSA CFG exporter  | ``yul-ssa-cfg-exporter`` | no               | ``--yul-cfg-json``                                                |
-+-----------------------+--------------------------+------------------+-------------------------------------------------------------------+
-| SSA CFG codegen       | ``ssa-cfg-codegen``      | yes              | ``--ssa-cfg-codegen`` (not yet on ``develop``)                    |
 +-----------------------+--------------------------+------------------+-------------------------------------------------------------------+

@@ -136,6 +136,8 @@ explanatory purposes.
         "compilationTarget": {
           "myDirectory/myFile.sol": "MyContract"
         },
+        // Optional: Indicates whether experimental mode has been toggled.
+        "experimental": true,
         // Required for Solidity: Addresses for libraries used.
         // Note that metadata has a different format for "libraries" field than the standard JSON input.
         // metadata format = { "MyLib.sol:MyLib": "0x123123..." }
