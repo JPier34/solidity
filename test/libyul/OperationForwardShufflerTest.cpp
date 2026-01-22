@@ -246,15 +246,36 @@ BOOST_AUTO_TEST_CASE(TestJunk)
 		Stack stack(data, {.hook = [&](std::string const& op){ std::cout << op << ", "; trace.entries.push_back({op, data}); }});
 		ssa::OperationForwardShuffler<StackManipulationCallbacks>::shuffle(stack, args, liveness, 25, false);
 	}*/
-	{
+	/*{
 		TraceRecorder trace;
 		Stack::Data data = parseStackData("[v2, v3, v4, v5, v6, v7, v8, v9, v10]");
 		Stack::Data args = parseStackData("[lit3, v9, v8, v7, v6, v5, v4, v3, v2, v10]");
 		Liveness liveness = parseLiveness("[v10]");
 
 		trace.entries.push_back({"(initial)", data});
-		Stack stack(data, {.hook = [&](std::string const& op){ std::cout << op << ", "; trace.entries.push_back({op, data}); }});
+		Stack stack(data, {.hook = [&](std::string const& op){ std::cout << op << ", " << std::flush; trace.entries.push_back({op, data}); }});
 		ssa::OperationForwardShuffler<StackManipulationCallbacks>::shuffle(stack, args, liveness, 17, false);
+	}*/
+	/*{
+		// todo inefficient sequence of swap1 + pop
+		TraceRecorder trace;
+		Stack::Data data = parseStackData("[JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, v55, v71, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, v94]");
+		Stack::Data args = parseStackData("[lit11, v55]");
+		Liveness liveness = parseLiveness("[v55, v71, v94]");
+
+		trace.entries.push_back({"(initial)", data});
+		Stack stack(data, {.hook = [&](std::string const& op){ std::cout << op << ", " << std::flush; trace.entries.push_back({op, data}); }});
+		ssa::OperationForwardShuffler<StackManipulationCallbacks>::shuffle(stack, args, liveness, 70, false);
+	}*/
+	{
+		TraceRecorder trace;
+		Stack::Data data = parseStackData("[JUNK, JUNK, JUNK, JUNK, JUNK, v179, JUNK, phi233, phi234, phi236, v184, v185, JUNK, phi239, phi240, phi245, v188, JUNK, v190, v193, v194, phi253, JUNK, phi255, phi256, phi257, v197]");
+		Stack::Data args = parseStackData("[lit36, v197, phi255, phi257]");
+		Liveness liveness = parseLiveness("[v179, v184, v185, v188, v190, v193, v194, phi233, phi234, phi236, phi239, phi240, phi245, phi253, phi255, phi256]");
+
+		trace.entries.push_back({"(initial)", data});
+		Stack stack(data, {.hook = [&](std::string const& op){ std::cout << op << ", " << std::flush; trace.entries.push_back({op, data}); }});
+		ssa::OperationForwardShuffler<StackManipulationCallbacks>::shuffle(stack, args, liveness, 25, false);
 	}
 	/*{
 		Stack::Data data = parseStackData("[JUNK, v12, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, v68, JUNK, phi111, v84, v86]");

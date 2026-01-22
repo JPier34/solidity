@@ -1,5 +1,6 @@
 #pragma once
 
+#include "libyul/Exceptions.h"
 #include "range/v3/algorithm/count.hpp"
 #include "range/v3/view/enumerate.hpp"
 
@@ -517,57 +518,71 @@ private:
 		yulAssert(_ops.stack.size() <= _ops.targetStats.targetSize, "this method assumes that the stack isn't too large");
 		for (StackOffset offset: stackArgsRange(_ops.stack, _ops.targetStats.tailSize) | ranges::views::reverse)
 			if (
-				_ops.stack.swapReachable(offset) &&  // if we can swap it up
 				_ops.requiredInTail(_ops.stack[offset]) &&  // if we need the slot in tail
-				_ops.stackStats.tailCount(_ops.stack[offset]) == 0 &&  // if we don't have the slot in tail right now
-				!_ops.isArgsCompatible(offset, offset)  // don't swap away a slot already in correct args position
+				_ops.stackStats.tailCount(_ops.stack[offset]) == 0  // if we don't have the slot in tail right now
 			)
 			{
-				// find the lowest swappable slot in tail that needs to go to args, swap
-				for (StackOffset tailOffset: stackTailRange(_ops.stack, _ops.targetStats.tailSize))
-					if (
-						_ops.stack.swapReachable(tailOffset) &&  // we can swap that deep
-						(!_ops.requiredInTail(_ops.stack[tailOffset]) || _ops.stackStats.tailCount(_ops.stack[tailOffset]) > 1) &&  // dont need it in tail or it's available more than once
-						_ops.requiredInArgs(_ops.stack[tailOffset]) &&  // we need the tail offset slot in args
-						_ops.targetArgsCount(_ops.stack[tailOffset]) > _ops.stackStats.argsCount(_ops.stack[tailOffset])  // we don't already have enough of it in args
-					)
+				// If we don't have enough copies of this slot, dup first instead of swapping.
+				Slot const& slot = _ops.stack[offset];
+				if (_ops.stackStats.totalCount(slot) < _ops.targetMinCount(slot))
+				{
+					if (_ops.stack.dupReachable(offset))
 					{
-						// bring up offset slot if necessary
-						if (offset != StackOffset{_ops.stack.size() - 1})
-							_ops.stack.swap(offset);
-						// swap offset slot down into tail
-						_ops.stack.swap(tailOffset);
+						_ops.stack.dup(offset);
 						return true;
 					}
-				// find the lowest swappable slot in tail that can be popped but is no literal, swap
-				for (StackOffset tailOffset: stackTailRange(_ops.stack, _ops.targetStats.tailSize))
-					if (
-						_ops.stack.swapReachable(tailOffset) &&
-						_ops.stack.canBeFreelyGenerated(_ops.stack[tailOffset]) &&
-						!_ops.stack[tailOffset].isLiteralValueID()
-					)
-					{
-						// bring up offset slot if necessary
-						if (offset != StackOffset{_ops.stack.size() - 1})
-							_ops.stack.swap(offset);
-						// swap offset slot down into tail
-						_ops.stack.swap(tailOffset);
-						return true;
-					}
-				// find the lowest swappable slot in tail that is a literal, swap
-				for (StackOffset tailOffset: stackTailRange(_ops.stack, _ops.targetStats.tailSize))
-					if (
-						_ops.stack.swapReachable(tailOffset) &&
-						_ops.stack[tailOffset].isLiteralValueID()
-					)
-					{
-						// bring up offset slot if necessary
-						if (offset != StackOffset{_ops.stack.size() - 1})
-							_ops.stack.swap(offset);
-						// swap offset slot down into tail
-						_ops.stack.swap(tailOffset);
-						return true;
-					}
+				}
+
+				if (
+					!_ops.isArgsCompatible(offset, offset) && // don't swap away a slot already in correct args position)
+					_ops.stack.swapReachable(offset) // if we can swap it up
+				) {
+					// find the lowest swappable slot in tail that needs to go to args, swap
+					for (StackOffset tailOffset: stackTailRange(_ops.stack, _ops.targetStats.tailSize))
+						if (
+							_ops.stack.swapReachable(tailOffset) &&  // we can swap that deep
+							(!_ops.requiredInTail(_ops.stack[tailOffset]) || _ops.stackStats.tailCount(_ops.stack[tailOffset]) > 1) &&  // dont need it in tail or it's available more than once
+							_ops.requiredInArgs(_ops.stack[tailOffset]) &&  // we need the tail offset slot in args
+							_ops.targetArgsCount(_ops.stack[tailOffset]) > _ops.stackStats.argsCount(_ops.stack[tailOffset])  // we don't already have enough of it in args
+						)
+						{
+							// bring up offset slot if necessary
+							if (offset != StackOffset{_ops.stack.size() - 1})
+								_ops.stack.swap(offset);
+							// swap offset slot down into tail
+							_ops.stack.swap(tailOffset);
+							return true;
+						}
+					// find the lowest swappable slot in tail that can be popped but is no literal, swap
+					for (StackOffset tailOffset: stackTailRange(_ops.stack, _ops.targetStats.tailSize))
+						if (
+							_ops.stack.swapReachable(tailOffset) &&
+							_ops.stack.canBeFreelyGenerated(_ops.stack[tailOffset]) &&
+							!_ops.stack[tailOffset].isLiteralValueID()
+						)
+						{
+							// bring up offset slot if necessary
+							if (offset != StackOffset{_ops.stack.size() - 1})
+								_ops.stack.swap(offset);
+							// swap offset slot down into tail
+							_ops.stack.swap(tailOffset);
+							return true;
+						}
+					// find the lowest swappable slot in tail that is a literal, swap
+					for (StackOffset tailOffset: stackTailRange(_ops.stack, _ops.targetStats.tailSize))
+						if (
+							_ops.stack.swapReachable(tailOffset) &&
+							_ops.stack[tailOffset].isLiteralValueID()
+						)
+						{
+							// bring up offset slot if necessary
+							if (offset != StackOffset{_ops.stack.size() - 1})
+								_ops.stack.swap(offset);
+							// swap offset slot down into tail
+							_ops.stack.swap(tailOffset);
+							return true;
+						}
+				}
 			}
 		return false;
 	}
@@ -787,14 +802,12 @@ private:
 		{
 			for (auto const& arg: _ops.targetStats.args)
 				if (_ops.stackStats.totalCount(arg) < _ops.targetMinCount(arg))
+				{
 					if (shrinkStack(_ops.stack, _ops))
 						return true;
-			/*if (!_ops.argsRegionIsCorrect())
-				if (shrinkStack(_ops.stack, _ops))
-					return true;
-				else
-					; // todo this is annoying and we have to do sth about stack too deep because the args isnt correct, we couldnt fix anything, and we couldnt shrink
-					  //	  a way out of this is to spill the top-most thing to memory and shrink by that*/
+					else
+						yulAssert(false, "stack too deep");
+				}
 		}
 		return false;
 	}
@@ -823,6 +836,7 @@ private:
 
 			// todo: in the future we'll want stack too deep handling here and
 			//		 dup up the args if possible or mload them by explicitly calling _stack.reportStackTooDeep(arg)
+
 			yulAssert(false);
 		}
 
