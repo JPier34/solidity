@@ -2,6 +2,8 @@
 
 #include <boost/test/unit_test.hpp>
 
+#include <fmt/ranges.h>
+
 #include <sstream>
 #include <string>
 #include <vector>
@@ -102,77 +104,186 @@ Liveness parseLiveness(std::string_view _input)
 			liveCounts.emplace_back(*valueId, 1);  // Default reference count of 1
 	}
 
-	return Liveness(liveCounts.begin(), liveCounts.end());
+	return {liveCounts.begin(), liveCounts.end()};
 }
 
 struct StackManipulationCallbacks
 {
-	size_t numOps = 0;
-	void swap(size_t _depth)
+	void swap(size_t _depth) const
 	{
-		++numOps;
-		auto op = fmt::format("SWAP{}", _depth);
-		if (hook) (*hook)(op);
+		if (hook)
+			(*hook)(fmt::format("SWAP{}", _depth));
 	}
-	void dup(size_t _depth)
+	void dup(size_t const _depth) const
 	{
-		++numOps;
-		auto op = fmt::format("DUP{}", _depth);
-		if (hook) (*hook)(op);
+		if (hook)
+			(*hook)(fmt::format("DUP{}", _depth));
 	}
-	void push(Slot const& _slot)
+	void push(Slot const& _slot) const
 	{
-		++numOps;
-		auto op = fmt::format("PUSH {}", slotToString(_slot));
-		if (hook) (*hook)(op);
+		if (hook)
+			(*hook)(fmt::format("PUSH {}", slotToString(_slot)));
 	}
-	void pop()
+	void pop() const
 	{
-		++numOps;
-		std::string op = "POP";
-		if (hook) (*hook)(op);
+		if (hook)
+			(*hook)("POP");
 	}
 
 	std::optional<std::function<void(std::string const&)>> hook = std::nullopt;
 };
 using Stack = solidity::yul::ssa::Stack<StackManipulationCallbacks>;
 
-struct TraceEntry {
-	std::string operation;
-	Stack::Data stackAfter;
-};
-struct TraceRecorder {
-	std::vector<TraceEntry> entries;
+class TraceRecorder {
+	static constexpr size_t operationColumnWidth = 12;
+	static constexpr size_t slotColumnWidth = 7;
+	static constexpr char junkSymbol = '*';
+
+public:
+	TraceRecorder(std::ostream& _out, Stack::Data _targetArgs, Liveness _targetTail, size_t _targetStackSize):
+		m_out(_out),
+		m_targetArgs(std::move(_targetArgs)),
+		m_targetTail(std::move(_targetTail)),
+		m_targetStackSize(_targetStackSize),
+		m_targetTailSize(
+			[&] {
+				yulAssert(_targetStackSize >= m_targetArgs.size());
+				return _targetStackSize - m_targetArgs.size();
+			}()
+		)
+	{}
+
+	void record(std::string const& _operation, Stack::Data const& _stack)
+	{
+		m_entries.emplace_back(_operation, _stack);
+	}
+
 	~TraceRecorder()
 	{
-		size_t maxSlots = 0;
-		for (auto const& entry : entries)
-			maxSlots = std::max(maxSlots, entry.stackAfter.size());
+		if (m_entries.empty())
+			return;
 
-		std::cout << "\n";
-		// Header row with slot indices
-		std::cout << fmt::format("{:>12}|", "");
-		for (size_t i = 0; i < maxSlots; ++i)
-			std::cout << fmt::format("{:>7}", i);
-		std::cout << "\n";
+		size_t maxStackDepth = 0;
+		for (const auto& [operation, stackAfter] : m_entries)
+			maxStackDepth = std::max(maxStackDepth, stackAfter.size());
 
-		// Data rows
-		for (auto const& entry : entries)
+		if (maxStackDepth == 0)
+			return;
+
+		bool const hasExcess = maxStackDepth > m_targetStackSize;
+
+		m_out << '\n';
+		emitHeader(maxStackDepth, hasExcess);
+		emitSeparatorLine(maxStackDepth, hasExcess);
+		for (auto const& entry : m_entries)
+			emitDataRow(entry, maxStackDepth, hasExcess);
+		emitSeparatorLine(maxStackDepth, hasExcess);
+		emitTargetRow(maxStackDepth, hasExcess);
+	}
+
+private:
+	struct TraceEntry {
+		std::string operation;
+		Stack::Data stackAfter;
+	};
+
+	std::ostream& m_out;
+	std::vector<TraceEntry> m_entries;
+	Stack::Data const m_targetArgs;
+	Liveness const m_targetTail;
+	size_t const m_targetStackSize;
+	size_t const m_targetTailSize;
+
+	void emitSeparator(size_t const _index, bool const _hasExcess, char const _junction) const
+	{
+		if (_index == m_targetTailSize && !m_targetArgs.empty() && m_targetTailSize > 0)
+			m_out << ' ' << _junction;
+		else if (_hasExcess && _index == m_targetTailSize + m_targetArgs.size())
+			m_out << ' ' << _junction;
+	}
+
+	void emitHeader(size_t const _maxStackDepth, bool const _hasExcess) const
+	{
+		m_out << fmt::format("{:>{}}", "", operationColumnWidth) << "|";
+		for (size_t i = 0; i < _maxStackDepth; ++i)
 		{
-			std::cout << fmt::format("{:>12}|", entry.operation);
-			for (size_t i = 0; i < maxSlots; ++i)
-			{
-				if (i < entry.stackAfter.size())
-				{
-					auto const& slot = entry.stackAfter[i];
-					std::string s = slot.isJunk() ? "*" : solidity::yul::ssa::slotToString(slot);
-					std::cout << fmt::format("{:>7}", s);
-				}
-				else
-					std::cout << "       ";
-			}
-			std::cout << "\n";
+			emitSeparator(i, _hasExcess, '|');
+			m_out << fmt::format("{:>{}}", i, slotColumnWidth);
 		}
+		m_out << "\n";
+	}
+
+	void emitSeparatorLine(size_t _maxStackDepth, bool const _hasExcess) const
+	{
+		m_out << fmt::format("{:>{}}", "", operationColumnWidth) << '+';
+		for (size_t i = 0; i < _maxStackDepth; ++i)
+		{
+			emitSeparator(i, _hasExcess, '+');
+			m_out << std::string(slotColumnWidth, '-');
+		}
+		m_out << '\n';
+	}
+
+	void emitDataRow(TraceEntry const& _entry, size_t _maxStackDepth, bool const _hasExcess) const
+	{
+		m_out << fmt::format("{:>{}}", _entry.operation, operationColumnWidth) << "|";
+		for (size_t i = 0; i < _maxStackDepth; ++i)
+		{
+			emitSeparator(i, _hasExcess, '|');
+			if (i < _entry.stackAfter.size())
+			{
+				auto const& slot = _entry.stackAfter[i];
+				std::string slotStr = slot.isJunk()
+					? std::string(1, junkSymbol)
+					: solidity::yul::ssa::slotToString(slot);
+				m_out << fmt::format("{:>{}}", slotStr, slotColumnWidth);
+			}
+			else
+				m_out << std::string(slotColumnWidth, ' ');
+		}
+		m_out << '\n';
+	}
+
+	void emitTargetRow(size_t const _maxStackDepth, bool const _hasExcess) const
+	{
+		m_out << fmt::format("{:>{}}", "(target)", operationColumnWidth) << "|";
+
+		// Print tail region with set notation
+		if (m_targetTailSize > 0)
+		{
+			std::string tailSetStr;
+			if (!m_targetTail.empty())
+				tailSetStr = fmt::format(
+				"{{{}}}",
+					fmt::join(
+						m_targetTail | ranges::views::keys | ranges::views::transform(
+							[](auto const& id) { return solidity::yul::ssa::slotToString(Slot::makeValueID(id)); }
+						),
+					", ")
+				);
+			m_out << fmt::format("{:>{}}", tailSetStr, m_targetTailSize * slotColumnWidth);
+		}
+
+		// Args separator
+		if (!m_targetArgs.empty() && m_targetTailSize > 0)
+			m_out << " |";
+
+		// Print args region
+		for (auto const& slot : m_targetArgs)
+		{
+			std::string slotStr = slot.isJunk() ? std::string(1, junkSymbol) : solidity::yul::ssa::slotToString(slot);
+			m_out << fmt::format("{:>{}}", slotStr, slotColumnWidth);
+		}
+
+		// Excess separator and region
+		if (_hasExcess)
+		{
+			m_out << " |";
+			size_t excessSize = _maxStackDepth - m_targetTailSize - m_targetArgs.size();
+			m_out << std::string(excessSize * slotColumnWidth, ' ');
+		}
+
+		m_out << '\n';
 	}
 };
 }
@@ -268,14 +379,15 @@ BOOST_AUTO_TEST_CASE(TestJunk)
 		ssa::OperationForwardShuffler<StackManipulationCallbacks>::shuffle(stack, args, liveness, 70, false);
 	}*/
 	{
-		TraceRecorder trace;
 		Stack::Data data = parseStackData("[JUNK, JUNK, JUNK, JUNK, JUNK, v179, JUNK, phi233, phi234, phi236, v184, v185, JUNK, phi239, phi240, phi245, v188, JUNK, v190, v193, v194, phi253, JUNK, phi255, phi256, phi257, v197]");
 		Stack::Data args = parseStackData("[lit36, v197, phi255, phi257]");
 		Liveness liveness = parseLiveness("[v179, v184, v185, v188, v190, v193, v194, phi233, phi234, phi236, phi239, phi240, phi245, phi253, phi255, phi256]");
+		size_t const targetStackSize = 25;
 
-		trace.entries.push_back({"(initial)", data});
-		Stack stack(data, {.hook = [&](std::string const& op){ std::cout << op << ", " << std::flush; trace.entries.push_back({op, data}); }});
-		ssa::OperationForwardShuffler<StackManipulationCallbacks>::shuffle(stack, args, liveness, 25, false);
+		TraceRecorder trace(std::cout, args, liveness, targetStackSize);
+		trace.record("(initial)", data);
+		Stack stack(data, {.hook = [&](std::string const& op){ trace.record(op, data); }});
+		ssa::OperationForwardShuffler<StackManipulationCallbacks>::shuffle(stack, args, liveness, targetStackSize, false);
 	}
 	/*{
 		Stack::Data data = parseStackData("[JUNK, v12, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, v68, JUNK, phi111, v84, v86]");
