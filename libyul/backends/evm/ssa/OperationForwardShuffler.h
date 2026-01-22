@@ -239,7 +239,7 @@ private:
 	// If dupping an ideal slot causes a slot that will still be required to become unreachable, then dup
 	// the latter slot first.
 	// @returns true, if it performed a dup.
-	static bool dupDeepSlotIfRequired(Ops const& _ops, bool const _generateJunk)
+	static bool dupDeepSlotIfRequired(Ops const& _ops)
 	{
 		// Check if the stack is large enough for anything to potentially become unreachable.
 		if (_ops.stack.size() < ReachableStackDepth - 1)
@@ -853,7 +853,7 @@ private:
 		if (auto missingSlot = findMissingFreelyGeneratableLiveOutSlot(ops))
 		{
 			// Push missing freely-generatable liveOut slot (e.g., literal)
-			if (!dupDeepSlotIfRequired(ops, _generateJunk))
+			if (!dupDeepSlotIfRequired(ops))
 				_stack.push(*missingSlot);
 		}
 
@@ -870,7 +870,7 @@ private:
 		if (_stack.size() < _targetStats.tailSize)
 		{
 			// if something is on the verge of going out of scope by duping something, dup that first
-			if (dupDeepSlotIfRequired(ops, _generateJunk))
+			if (dupDeepSlotIfRequired(ops))
 				return true;
 
 			// dup up the deepest slot that needs to go into args so we avoid having to fish it back up later
@@ -880,13 +880,13 @@ private:
 			// Try to dup the optimal slot based on liveness analysis
 			if (auto slotToDup = selectOptimalSlotToDup(ops))
 			{
-				if (!dupDeepSlotIfRequired(ops, _generateJunk))
+				if (!dupDeepSlotIfRequired(ops))
 					_stack.dup(*slotToDup);
 			}
 			else
 			{
 				// If no suitable slot found, push junk
-				if (!dupDeepSlotIfRequired(ops, _generateJunk))
+				if (!dupDeepSlotIfRequired(ops))
 					_stack.push(Slot::makeJunk());
 			}
 			return true;
@@ -912,7 +912,7 @@ private:
 		// dup up whatever is missing
 		if (_stack.size() < _targetStats.targetSize)
 		{
-			if (dupDeepSlotIfRequired(ops, _generateJunk))
+			if (dupDeepSlotIfRequired(ops))
 				return true;
 
 			{
@@ -955,18 +955,18 @@ private:
 				}
 			}
 
-			if (!dupDeepSlotIfRequired(ops, _generateJunk))
+			if (!dupDeepSlotIfRequired(ops))
 			{
 				// Try to dup the optimal slot based on liveness analysis
 				if (auto slotToDup = selectOptimalSlotToDup(ops))
 				{
-					if (!dupDeepSlotIfRequired(ops, _generateJunk))
+					if (!dupDeepSlotIfRequired(ops))
 						_stack.dup(*slotToDup);
 				}
 				else
 				{
 					// If no suitable slot found, push junk
-					if (!dupDeepSlotIfRequired(ops, _generateJunk))
+					if (!dupDeepSlotIfRequired(ops))
 						_stack.push(Slot::makeJunk());
 				}
 			}
