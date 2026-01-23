@@ -22,10 +22,11 @@
  */
 
 #include <libsolidity/analysis/TypeChecker.h>
+
 #include <libsolidity/ast/AST.h>
 #include <libsolidity/ast/ASTUtils.h>
-#include <libsolidity/ast/UserDefinableOperators.h>
 #include <libsolidity/ast/TypeProvider.h>
+#include <libsolidity/ast/UserDefinableOperators.h>
 
 #include <libyul/AsmAnalysis.h>
 #include <libyul/AsmAnalysisInfo.h>
@@ -3481,7 +3482,13 @@ bool TypeChecker::visit(IndexAccess const& _access)
 			if (expectType(*index, *TypeProvider::uint256()))
 			{
 				if (auto indexValue = dynamic_cast<RationalNumberType const*>(type(*index)))
+				{
 					length = indexValue->literalValue(nullptr);
+					// Declaring an array type which has zero elements is not allowed.
+					// The same error is issued by the `DeclarationTypeChecker` for `ArrayTypeName`.
+					if (length < 1)
+						m_errorReporter.typeError(7015_error, _access.location(), "Array with zero length specified.");
+				}
 				else
 					m_errorReporter.fatalTypeError(3940_error, index->location(), "Integer constant expected.");
 			}
