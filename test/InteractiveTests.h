@@ -30,6 +30,7 @@
 #include <test/libsolidity/SyntaxTest.h>
 #include <test/libsolidity/SemanticTest.h>
 #include <test/libsolidity/SMTCheckerTest.h>
+#include <test/libyul/ssa/ShufflingTest.h>
 #include <test/libyul/ControlFlowGraphTest.h>
 #include <test/libyul/SSAControlFlowGraphTest.h>
 #include <test/libyul/SSAStackShufflingTest.h>
@@ -73,6 +74,7 @@ Testsuite const g_interactiveTestsuites[] = {
 	{"Yul Object Compiler",         "libyul",      "objectCompiler",                false, false, &yul::test::ObjectCompilerTest::create},
 	{"Yul Control Flow Graph",      "libyul",      "yulControlFlowGraph",           false, false, &yul::test::ControlFlowGraphTest::create},
 	{"Yul SSA Control Flow Graph",  "libyul",      "yulSSAControlFlowGraph",        false, false, &yul::test::SSAControlFlowGraphTest::create},
+	{"Yul SSA StackShuffling",  "libyul",      "ssa/shuffling",        false, false, &yul::ssa::test::ShufflingTest::create},
 	// {"Yul SSA Stack Shuffling",     "libyul",      "yulSSAStackShuffling",          false, false, &yul::test::SSAStackShufflingTest::create},
 	{"Yul Stack Layout",            "libyul",      "yulStackLayout",                false, false, &yul::test::StackLayoutGeneratorTest::create},
 	{"Yul Stack Shuffling",         "libyul",      "yulStackShuffling",             false, false, &yul::test::StackShufflingTest::create},
