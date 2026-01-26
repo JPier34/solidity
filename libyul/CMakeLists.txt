@@ -94,6 +94,8 @@ add_library(yul
 	backends/evm/ssa/SSACFGBuilder.cpp
 	backends/evm/ssa/Stack.h
 	backends/evm/ssa/Stack.cpp
+	backends/evm/ssa/Shuffler.cpp
+	backends/evm/ssa/Shuffler.h
 	backends/evm/ssa/SSACFGBuilder.h
     backends/evm/ssa/SSACFGJsonExporter.h
 	backends/evm/ssa/SSACFGJsonExporter.cpp
