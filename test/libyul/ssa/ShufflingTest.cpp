@@ -18,6 +18,8 @@
 
 #include <test/libyul/ssa/ShufflingTest.h>
 
+#include "range/v3/algorithm/for_each.hpp"
+
 #include <libyul/backends/evm/ssa/LivenessAnalysis.h>
 #include <libyul/backends/evm/ssa/OperationForwardShuffler.h>
 #include <libyul/backends/evm/ssa/Stack.h>
@@ -27,12 +29,19 @@
 
 #include <fmt/ranges.h>
 
+#include <sstream>
+
 using namespace solidity;
 using namespace solidity::yul::ssa;
 using namespace solidity::yul::ssa::test;
 
 namespace
 {
+std::string_view constexpr parserKeyInitialStack {"initial"};
+std::string_view constexpr parserKeyStackTop {"targetStackTop"};
+std::string_view constexpr parserKeyTailSet {"targetStackTailSet"};
+std::string_view constexpr parserKeyStackSize {"targetStackSize"};
+
 using Liveness = LivenessAnalysis::LivenessData;
 using Slot = StackSlot;
 using ValueId = SSACFG::ValueId;
@@ -95,7 +104,7 @@ Slot parseSlot(std::string_view token)
 	{
 		if (auto const num = util::parseArithmetic<std::size_t>(token.substr(3)))
 			return Slot::makeValueID(ValueId::makeLiteral(*num));
-		throw std::runtime_error(fmt::format("Couldn't parse variable token: {}", token));
+		throw std::runtime_error(fmt::format("Couldn't parse literal token: {}", token));
 	}
 	throw std::runtime_error(fmt::format("Unknown token: {}", token));
 }
@@ -118,12 +127,10 @@ TestStack::Data parseSlots(std::string_view _input)
 	{
 		auto const slotTokenBegin = ranges::begin(slotToken);
 		auto const slotTokenEnd  = ranges::end(slotToken);
-		if (slotTokenBegin == slotTokenEnd)
-			throw std::runtime_error("Empty slot in test configuration.");
 
 		std::string_view token{&*slotTokenBegin, static_cast<std::size_t>(ranges::distance(slotTokenBegin, slotTokenEnd))};
 		token = trim(token);
-		yulAssert(!token.empty());
+		yulAssert(!token.empty(), "Empty token.");
 		result.push_back(parseSlot(token));
 	}
 	return result;
@@ -146,8 +153,8 @@ Liveness parseLiveness(std::string_view _input)
 
 struct ShuffleTestInput
 {
-	std::optional<StackData> initial;
-	std::optional<StackData> targetStackTop;
+	std::optional<TestStack::Data> initial;
+	std::optional<TestStack::Data> targetStackTop;
 	std::optional<Liveness> targetStackTailSet;
 	std::optional<size_t> targetStackSize;
 
@@ -190,14 +197,20 @@ struct ShuffleTestInput
 			auto const key = trim(line.substr(0, colonPos));
 			auto const value = trim(line.substr(colonPos + 1));
 
-			if (key == "initial")
+			if (key == parserKeyInitialStack)
 				result.initial = parseSlots(value);
-			else if (key == "targetStackTop")
+			else if (key == parserKeyStackTop)
 				result.targetStackTop = parseSlots(value);
-			else if (key == "targetStackTailSet")
+			else if (key == parserKeyTailSet)
 				result.targetStackTailSet = parseLiveness(value);
-			else if (key == "targetStackSize")
-				result.targetStackSize = std::stoull(std::string{value});
+			else if (key == parserKeyStackSize)
+			{
+				if (auto num = util::parseArithmetic<std::size_t>(value))
+					result.targetStackSize = *num;
+				else
+					throw std::runtime_error(fmt::format("Couldn't parse targetStackSize: {}", value));
+			}
+
 		}
 		return result;
 	}
@@ -350,7 +363,8 @@ private:
 };
 }
 
-std::unique_ptr<frontend::test::TestCase> ShufflingTest::create(Config const& _config) {
+std::unique_ptr<frontend::test::TestCase> ShufflingTest::create(Config const& _config)
+{
 	return std::make_unique<ShufflingTest>(_config.filename);
 }
 
@@ -367,10 +381,30 @@ ShufflingTest::TestResult ShufflingTest::run(std::ostream& _stream, std::string 
 	auto const testConfig = ShuffleTestInput::parse(m_source);
 	if (!testConfig.valid())
 	{
-		util::AnsiColorized(_stream, _formatted, {util::formatting::BOLD, util::formatting::RED})
-			<< _linePrefix
-			<< "Error parsing source."
-			<< std::endl;
+		  static constexpr std::string_view formatHelp = R"(initial: [<slot>, ...]
+targetStackTop: [<slot>, ...]
+targetStackTailSet: [<slot>, ...]
+targetStackSize: <non-negative integer>
+
+Where <slot> is one of:
+  v<N>    - variable
+  phi<N>  - phi node
+  lit<N>  - literal
+  JUNK    - junk slot
+
+Lines starting with // are comments. Comments at the end of lines are supported, too.)";
+		std::vector<std::string_view> missingFields;
+		util::AnsiColorized out(_stream, _formatted, {util::formatting::BOLD, util::formatting::RED});
+		out	<< _linePrefix << fmt::format("Error parsing source. Expected format:") << '\n';
+
+		for (auto const line: ranges::views::split(formatHelp, '\n'))
+		{
+			auto const lineSVBegin = ranges::begin(line);
+			auto const lineSVEnd = ranges::end(line);
+
+			std::string_view lineSV{&*lineSVBegin, static_cast<std::size_t>(ranges::distance(lineSVBegin, lineSVEnd))};
+			out << _linePrefix << "  " << lineSV << '\n';
+		}
 		return TestResult::FatalError;
 	}
 
