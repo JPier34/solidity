@@ -19,7 +19,7 @@
 #include <test/libyul/ssa/ShufflingTest.h>
 
 #include <libyul/backends/evm/ssa/LivenessAnalysis.h>
-#include <libyul/backends/evm/ssa/OperationForwardShuffler.h>
+#include <libyul/backends/evm/ssa/Shuffler.h>
 #include <libyul/backends/evm/ssa/Stack.h>
 
 #include <range/v3/algorithm/find_if_not.hpp>
@@ -419,12 +419,11 @@ Lines starting with // are comments. Comments at the end of lines are supported,
 		{
 			trace.record(op, stackData);
 		}});
-		OperationForwardShuffler<StackManipulationCallbacks>::shuffle(
+		Shuffler<StackManipulationCallbacks>::shuffle(
 			stack,
 			*testConfig.targetStackTop,
 			*testConfig.targetStackTailSet,
-			*testConfig.targetStackSize,
-			false
+			*testConfig.targetStackSize
 		);
 	}
 	m_obtainedResult = oss.str();
