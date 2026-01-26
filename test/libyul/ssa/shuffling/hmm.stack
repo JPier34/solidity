@@ -1,0 +1,20 @@
+initial: [JUNK, JUNK, v56, v57, JUNK, JUNK]
+targetStackTop: [v56, v57, lit0, v56, lit11]
+targetStackTailSet: [v56]
+targetStackSize: 9
+// ----
+//             |      0      1      2      3 |      4      5      6      7      8
+//             +---------------------------- +-----------------------------------
+//    (initial)|      *      *    v56    v57 |      *      *
+//    PUSH lit0|      *      *    v56    v57 |      *      *   lit0
+//         DUP5|      *      *    v56    v57 |      *      *   lit0    v56
+//        SWAP3|      *      *    v56    v57 |    v56      *   lit0      *
+//   PUSH lit11|      *      *    v56    v57 |    v56      *   lit0      *  lit11
+//        SWAP6|      *      *  lit11    v57 |    v56      *   lit0      *    v56
+//        SWAP1|      *      *  lit11    v57 |    v56      *   lit0    v56      *
+//        SWAP6|      *      *      *    v57 |    v56      *   lit0    v56  lit11
+//        SWAP5|      *      *      *  lit11 |    v56      *   lit0    v56    v57
+//        SWAP3|      *      *      *  lit11 |    v56    v57   lit0    v56      *
+//        SWAP5|      *      *      *      * |    v56    v57   lit0    v56  lit11
+//             +---------------------------- +-----------------------------------
+//     (target)|                             |    v56    v57   lit0    v56  lit11

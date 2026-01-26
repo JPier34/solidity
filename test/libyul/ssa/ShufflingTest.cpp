@@ -18,8 +18,6 @@
 
 #include <test/libyul/ssa/ShufflingTest.h>
 
-#include "range/v3/algorithm/for_each.hpp"
-
 #include <libyul/backends/evm/ssa/LivenessAnalysis.h>
 #include <libyul/backends/evm/ssa/OperationForwardShuffler.h>
 #include <libyul/backends/evm/ssa/Stack.h>
@@ -216,7 +214,8 @@ struct ShuffleTestInput
 	}
 };
 
-class TraceRecorder {
+class TraceRecorder
+{
 	static constexpr size_t operationColumnWidth = 12;
 	static constexpr size_t slotColumnWidth = 7;
 	static constexpr char junkSymbol = '*';
@@ -393,7 +392,6 @@ Where <slot> is one of:
   JUNK    - junk slot
 
 Lines starting with // are comments. Comments at the end of lines are supported, too.)";
-		std::vector<std::string_view> missingFields;
 		util::AnsiColorized out(_stream, _formatted, {util::formatting::BOLD, util::formatting::RED});
 		out	<< _linePrefix << fmt::format("Error parsing source. Expected format:") << '\n';
 
