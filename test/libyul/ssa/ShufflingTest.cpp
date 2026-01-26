@@ -108,16 +108,16 @@ Slot parseSlot(std::string_view token)
 }
 
 /// Parse a string like "[v172, phi109, lit7, JUNK]" into Stack::Data
-TestStack::Data parseSlots(std::string_view _input)
+TestStack::Data parseSlots(std::string_view _input, char const brackBegin, char const brackEnd)
 {
 	TestStack::Data result;
 
-	// trim and remove square brackets
+	// trim and remove brackets
 	{
 		_input = trim(_input);
-		yulAssert(_input.starts_with('['));
+		yulAssert(_input.starts_with(brackBegin));
 		_input.remove_prefix(1);
-		yulAssert(_input.ends_with(']'));
+		yulAssert(_input.ends_with(brackEnd));
 		_input.remove_suffix(1);
 	}
 
@@ -126,7 +126,9 @@ TestStack::Data parseSlots(std::string_view _input)
 		auto const slotTokenBegin = ranges::begin(slotToken);
 		auto const slotTokenEnd  = ranges::end(slotToken);
 
-		std::string_view token{&*slotTokenBegin, static_cast<std::size_t>(ranges::distance(slotTokenBegin, slotTokenEnd))};
+		std::string_view token;
+		if(slotTokenBegin != slotTokenEnd)
+			token = {&*slotTokenBegin, static_cast<std::size_t>(ranges::distance(slotTokenBegin, slotTokenEnd))};
 		token = trim(token);
 		yulAssert(!token.empty(), "Empty token.");
 		result.push_back(parseSlot(token));
@@ -138,7 +140,7 @@ TestStack::Data parseSlots(std::string_view _input)
 /// Returns Liveness with reference count 1 for each value
 Liveness parseLiveness(std::string_view _input)
 {
-	auto const slots = parseSlots(_input);
+	auto const slots = parseSlots(_input, '{', '}');
 	std::vector<std::pair<ValueId, uint32_t>> liveCounts;
 	liveCounts.reserve(slots.size());
 	for (auto const& slot: slots)
@@ -196,9 +198,9 @@ struct ShuffleTestInput
 			auto const value = trim(line.substr(colonPos + 1));
 
 			if (key == parserKeyInitialStack)
-				result.initial = parseSlots(value);
+				result.initial = parseSlots(value, '[', ']');
 			else if (key == parserKeyStackTop)
-				result.targetStackTop = parseSlots(value);
+				result.targetStackTop = parseSlots(value, '[', ']');
 			else if (key == parserKeyTailSet)
 				result.targetStackTailSet = parseLiveness(value);
 			else if (key == parserKeyStackSize)
@@ -382,7 +384,7 @@ ShufflingTest::TestResult ShufflingTest::run(std::ostream& _stream, std::string 
 	{
 		  static constexpr std::string_view formatHelp = R"(initial: [<slot>, ...]
 targetStackTop: [<slot>, ...]
-targetStackTailSet: [<slot>, ...]
+targetStackTailSet: {<slot>, ...}
 targetStackSize: <non-negative integer>
 
 Where <slot> is one of:
@@ -399,9 +401,11 @@ Lines starting with // are comments. Comments at the end of lines are supported,
 		{
 			auto const lineSVBegin = ranges::begin(line);
 			auto const lineSVEnd = ranges::end(line);
-
-			std::string_view lineSV{&*lineSVBegin, static_cast<std::size_t>(ranges::distance(lineSVBegin, lineSVEnd))};
+			std::string_view lineSV;
+			if (lineSVBegin != lineSVEnd)
+				lineSV = {&*lineSVBegin, static_cast<std::size_t>(ranges::distance(lineSVBegin, lineSVEnd))};
 			out << _linePrefix << "  " << lineSV << '\n';
+
 		}
 		return TestResult::FatalError;
 	}

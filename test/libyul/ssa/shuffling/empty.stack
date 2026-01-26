@@ -1,6 +1,6 @@
 initial: []
-targetStackTop: []
-targetStackTailSet: []
+targetStackTop: [] //miau
+targetStackTailSet: {}
 targetStackSize: 3
 // ----
 //             |      0      1      2
