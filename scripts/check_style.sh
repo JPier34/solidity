@@ -73,7 +73,7 @@ FORMATSTDERROR=$(
 )
 
 # Merge errors into single string
-FORMATEDERRORS=$(printf '%s\n' "$FORMATERROR" "$FORMATSTDERROR" | grep -v '^$')
+FORMATEDERRORS=$(printf '%s\n' "$FORMATERROR" "$FORMATSTDERROR" | grep -v '^$' || true)
 
 if [[ "$FORMATEDERRORS" != "" ]]
 then
