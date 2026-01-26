@@ -37,7 +37,7 @@ fi
 
 function preparedGrep
 {
-    git grep -nIE "$1" -- '*.h' '*.cpp' | grep -v "${EXCLUDE_FILES_JOINED}"
+    git grep -nIE "$1" -- '*.h' '*.cpp' ':!test/' | grep -v "${EXCLUDE_FILES_JOINED}"
     return $?
 }
 
@@ -60,7 +60,7 @@ FORMATERROR=$(
     preparedGrep "[a-zA-Z0-9_]\s*[*][a-zA-Z_]" | grep -E -v -e "return [*]" -e "^* [*]" -e "^*//.*" | addPrefix "Pointer star should be left-aligned"
     preparedGrep "move\(.+\)" | grep -v "std::move" | grep -E "[^a-z]move" | addPrefix "Use std::move"
     preparedGrep "forward\(.+\)" | grep -v "std::forward" | grep -E "[^a-z]forward" | addPrefix "Use std::forward"
-) | grep -E -v -e "^\[[^]]*\] [a-zA-Z./]*:[0-9]*:\s*/[/*]" -e "^\[[^]]*\] test/" || true
+) | grep -E -v -e "^\[[^]]*\] [a-zA-Z./]*:[0-9]*:\s*/[/*]" || true
 )
 
 # Special error handling for `using namespace std;` exclusion, since said statement can be present in the test directory
