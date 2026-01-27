@@ -833,7 +833,7 @@ private:
 	static bool allNecessarySlotsReachableOrFinal(Stack<Callback> const& _stack, detail::State const& _state)
 	{
 		// check that args are either in position or reachable
-		for (StackOffset offset{_state.target().size}; offset < _state.target().size; ++offset.value)
+		for (StackOffset offset{_state.target().tailSize}; offset < _state.target().size; ++offset.value)
 			if (
 				offset < _state.size() &&
 				!_state.isArgsCompatible(offset, offset)

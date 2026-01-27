@@ -21,6 +21,7 @@
 #include <libyul/backends/evm/ssa/LivenessAnalysis.h>
 #include <libyul/backends/evm/ssa/Shuffler.h>
 #include <libyul/backends/evm/ssa/Stack.h>
+#include <ranges>
 
 #include <range/v3/algorithm/find_if_not.hpp>
 #include <range/v3/view/split.hpp>
@@ -426,6 +427,25 @@ Lines starting with // are comments. Comments at the end of lines are supported,
 			*testConfig.targetStackTailSet,
 			*testConfig.targetStackSize
 		);
+	}
+	// check stack data
+	{
+		auto const tailSize = *testConfig.targetStackSize - testConfig.targetStackTop->size();
+		yulAssert(stackData.size() == *testConfig.targetStackSize);
+		for (const auto& valueID: *testConfig.targetStackTailSet | ranges::views::keys)
+		{
+			auto const findIt = ranges::find(
+				stackData.begin(),
+				stackData.begin() + tailSize,
+				StackSlot::makeValueID(valueID)
+			);
+			yulAssert(findIt != ranges::end(stackData));
+		}
+		for (std::size_t offset = tailSize; offset < *testConfig.targetStackSize; ++offset)
+		{
+			auto const& targetSlot = testConfig.targetStackTop->at(offset - tailSize);
+			yulAssert(targetSlot.isJunk() || stackData[offset] == targetSlot);
+		}
 	}
 	m_obtainedResult = oss.str();
 
