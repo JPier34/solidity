@@ -405,7 +405,6 @@ Lines starting with // are comments. Comments at the end of lines are supported,
 			if (lineSVBegin != lineSVEnd)
 				lineSV = {&*lineSVBegin, static_cast<std::size_t>(ranges::distance(lineSVBegin, lineSVEnd))};
 			out << _linePrefix << "  " << lineSV << '\n';
-
 		}
 		return TestResult::FatalError;
 	}
@@ -414,10 +413,12 @@ Lines starting with // are comments. Comments at the end of lines are supported,
 	std::ostringstream oss;
 	{
 		TraceRecorder trace(oss, *testConfig.targetStackTop, *testConfig.targetStackTailSet, *testConfig.targetStackSize);
+		std::cout << std::endl;
+		TraceRecorder trace2(std::cout, *testConfig.targetStackTop, *testConfig.targetStackTailSet, *testConfig.targetStackSize);
 		trace.record("(initial)", *testConfig.initial);
 		TestStack stack(stackData, {.hook = [&](std::string const& op)
 		{
-			trace.record(op, stackData);
+			trace.record(op, stackData); trace2.record(op, stackData); std::cout << std::flush;
 		}});
 		Shuffler<StackManipulationCallbacks>::shuffle(
 			stack,

@@ -105,9 +105,9 @@ public:
 			// check that all required values are on stack
 			detail::State const state(_stack.data(), target, ReachableStackDepth);
 			for (const auto& liveVariable: _liveOut | ranges::views::keys | ranges::views::transform(Slot::makeValueID))
-				yulAssert(_stack.canBeFreelyGenerated(liveVariable) || state.count(liveVariable) > 0);
+				yulAssert(_stack.canBeFreelyGenerated(liveVariable) || ranges::find(_stack.data(), liveVariable) != ranges::end(_stack.data()));
 			for (const auto& arg: _args)
-				yulAssert(_stack.canBeFreelyGenerated(arg) || state.count(arg) > 0);
+				yulAssert(_stack.canBeFreelyGenerated(arg) || ranges::find(_stack.data(), arg) != ranges::end(_stack.data()));
 		}
 
 		constexpr std::size_t maxIterations = 1000;
@@ -423,25 +423,25 @@ private:
 		for (StackOffset sourceOffset{0u}; sourceOffset < _stack.size() - (ReachableStackDepth - 1); ++sourceOffset.value)
 		{
 			// This slot needs to be moved into args and there is no tail slot of the same kind further up in the stack.
-			auto const& slot = _stack[sourceOffset];
+			auto const& endangeredSlot = _stack[sourceOffset];
 			// no need top dup deep junk
-			if (slot.isJunk())
+			if (endangeredSlot.isJunk())
 				continue;
 			// check if we have more of the same slot further up in the stack
-			bool const neededInArgs = _state.targetArgsCount(slot) > _state.countInArgs(slot);
-			bool const needMore = _state.targetMinCount(slot) > _state.count(slot);
+			bool const neededInArgs = _state.targetArgsCount(endangeredSlot) > _state.countInArgs(endangeredSlot);
+			bool const needMore = _state.targetMinCount(endangeredSlot) > _state.count(endangeredSlot);
 			if (neededInArgs || needMore)
 			{
 				// if we ever need more of a slot then this can only happen if it is something we require
 				// in the arguments
-				yulAssert(_state.requiredInArgs(slot));
+				yulAssert(_state.requiredInArgs(endangeredSlot));
 
 				// todo why without args!? if it's there, it's there, that's fine
 				auto const [haveMoreAboveWithoutArgs, haveMoreAbove] = [&]
 				{
 					for (StackOffset offset{sourceOffset.value + 1}; offset < _stack.size(); ++offset.value)
 					{
-						if (_stack[offset] == slot)
+						if (_stack[offset] == endangeredSlot)
 							return std::make_tuple(_stack.size() - offset.value - 1 >= _state.target().args.size(), true);
 					}
 					return std::make_tuple(false, false);
@@ -460,14 +460,20 @@ private:
 				{
 					// todo i don't think i need this honestly
 					// If sourceOffset has the same value as top, skip - no point swapping (no-op) or duping (already at top)
-					if (_stack[sourceOffset] == _stack.top())
+					if (endangeredSlot == _stack.top())
 						continue;
 
+					// if we can safely swap the current stack top with the endangered slot, we do that instead of DUP
 					if (
 						!_state.isArgsCompatible(sourceOffset, sourceOffset) &&  // the offset isn't already in the right position wrt args
 						(
 							!_state.requiredInArgs(_stack.top()) || // current top can go into tail, ie it's not required as arg or
 							_state.countReachable(_stack.top()) > 1 // there's more of it in reachable stack depth
+						) &&
+						(
+							_state.target().tailSize <= sourceOffset.value ||  // sourceOffset not in tail
+							!_state.requiredInTail(endangeredSlot) ||  // we're in tail but sourceOffset not needed in tail
+							(_state.countInTail(endangeredSlot) > 1 && _state.requiredInTail(endangeredSlot))  // swapping source offset away from tail doesn't decrease tail correctness
 						)
 					)
 					{
@@ -620,10 +626,31 @@ private:
 			for (auto const& arg: _state.target().args)
 				if (_state.count(arg) < _state.targetMinCount(arg))
 				{
-					if (shrinkStack(_stack, _state))
+					// we have asserted that all relevant slots are reachable or final, so the arg must either be
+					// within dup-reach or we can just push it
+					if (auto depth = _stack.findSlotDepth(arg))
+					{
+						yulAssert(depth->value == 0 || _stack.swapReachable(*depth));
+						// if we can't outright dup the slot, let's shrink the stack first
+						if (!_stack.dupReachable(*depth))
+						{
+							yulAssert(shrinkStack(_stack, _state), "stack too deep, need to spill arg to memory");
+							return true;
+						}
+						_stack.dup(*depth);
+						return true;
+					}
+					else
+					{
+						yulAssert(_stack.canBeFreelyGenerated(arg));
+						if (!dupDeepSlotIfRequired(_stack, _state))
+							_stack.push(arg);
+						return true;
+					}
+					/*if (shrinkStack(_stack, _state))
 						return true;
 					else
-						yulAssert(false, "stack too deep");
+						yulAssert(false, "stack too deep");*/
 				}
 		}
 		return false;
@@ -805,9 +832,9 @@ private:
 				_stack.pop();
 				return true;
 			}
-		// pop any literals we can find
+		// pop anything that can be freely generated
 		for (StackOffset offset: _state.stackSwapReachableRange())
-			if (_stack[offset].isLiteralValueID())
+			if (_stack.canBeFreelyGenerated(_stack[offset]))
 			{
 				if (offset != stackTop && _stack[offset] != _stack[stackTop])
 					_stack.swap(offset);
@@ -854,7 +881,7 @@ private:
 				std::optional<StackDepth> depth = _stack.findSlotDepth(slotAtOffset);
 				// it must exist
 				yulAssert(depth);
-				if (!_stack.swapReachable(*depth))
+				if (!_stack.dupReachable(*depth))
 					return false;
 			}
 		}

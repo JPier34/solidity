@@ -18,7 +18,7 @@
 
 
 #include "ssa/ExactShuffler.h"
-#include "ssa/OperationForwardShuffler.h"
+#include "ssa/Shuffler.h"
 
 
 #include <libyul/backends/evm/SSACFGEVMCodeTransform.h>
@@ -232,7 +232,7 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 			for (Stack<AssemblyCallbacks>::Depth depth {0}; depth.value < m_stack.size(); ++depth.value)
 				if (m_stack.slot(depth).isValueID() && !opLiveOutWithoutOutputs.contains(m_stack.slot(depth).valueID()) && ranges::find(requiredStackTop, m_stack.slot(depth)) == ranges::end(requiredStackTop))
 					m_stack.declareJunk(depth);
-			OperationForwardShuffler<AssemblyCallbacks>::shuffle(m_stack, requiredStackTop, opLiveOutWithoutOutputs, operationStackIn.size(), m_junkBlockFinder.blockAllowsAdditionOfJunk(_block));
+			Shuffler<AssemblyCallbacks>::shuffle(m_stack, requiredStackTop, opLiveOutWithoutOutputs, operationStackIn.size());
 		}
 		else
 			DanielShuffler<Stack<AssemblyCallbacks>>::shuffle(m_stack, {}, operationStackIn);

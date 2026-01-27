@@ -3,6 +3,7 @@
 #include "libyul/backends/evm/SSACFGStackLayout.h"
 #include "libyul/backends/evm/SSACFGStackShuffler.h"
 #include "libyul/backends/evm/ssa/SSACFG.h"
+#include "libyul/backends/evm/ssa/Shuffler.h"
 
 
 #include <optional>
@@ -67,9 +68,9 @@ void shuffleStackExact(Stack& _stack, typename Stack::Data const& _target, SSACF
 	std::cout << "yay: " << stackToString(_stack.data()) << std::endl;
 	std::cout << "yay to: " << stackToString(transformedTarget) << std::endl;
 	#endif
-	OperationForwardShuffler<typename Stack::Callbacks>::shuffle(
+	ssa::Shuffler<typename Stack::Callbacks>::shuffle(
 		_stack,
-		transformedTarget, {}, transformedTarget.size(), false
+		transformedTarget, {}, transformedTarget.size()
 	);
 }
 

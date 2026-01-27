@@ -43,6 +43,7 @@
 #include <boost/version.hpp>
 
 #include <cstdint>
+#include <concepts>
 #include <functional>
 #include <map>
 #include <string>
@@ -62,6 +63,10 @@ using StringMap = std::map<std::string, std::string>;
 
 // String types.
 using strings = std::vector<std::string>;
+
+// Concepts.
+template <typename T>
+concept arithmetic = std::integral<T> || std::floating_point<T>;
 
 /// RAII utility class whose destructor calls a given function.
 class ScopeGuard

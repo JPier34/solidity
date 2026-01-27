@@ -31,14 +31,18 @@ State::State(StackData const& _stackData, Target const& _target, std::size_t con
 	m_histogramArgs.reserve(_target.args.size());
 	for (auto const& [i, slot]: _stackData | ranges::views::enumerate)
 	{
+		// we don't care about junk in the tail
+		if (i < _target.tailSize && slot.isJunk())
+			 continue;
+		// we purposefully skip over junk in the target args as they are always 'correct'
+		if (i >= _target.tailSize && i < _target.size && _target.args[i - _target.tailSize].isJunk())
+			continue;
+
 		++m_histogram[slot];
 		if (i < _target.tailSize)
 			++m_histogramTail[slot];
-		else
-			// if the slot points to a junk slot in the target, it is already 'used up' in this iteration so we don't mark it as such
-			// targetSize = argsSize + tailSize
-			if (i >= _target.tailSize || !_target.args[i - _target.tailSize].isJunk())
-				++m_histogramArgs[slot];
+		else if (i < _target.size)
+			++m_histogramArgs[slot];
 		if (_stackData.size() - i - 1 < _reachableStackDepth)
 			++m_histogramReachable[slot];
 	}

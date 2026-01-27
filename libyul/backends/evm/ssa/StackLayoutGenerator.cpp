@@ -13,7 +13,7 @@
 #include "range/v3/view/drop.hpp"
 
 #include <libyul/backends/evm/ssa/StackLayoutGenerator.h>
-#include <libyul/backends/evm/ssa/OperationForwardShuffler.h>
+#include <libyul/backends/evm/ssa/Shuffler.h>
 
 #include <queue>
 #include <ranges>
@@ -32,7 +32,6 @@
 #include "range/v3/view/drop.hpp"
 
 #include <libyul/backends/evm/ssa/StackLayoutGenerator.h>
-#include <libyul/backends/evm/ssa/OperationForwardShuffler.h>
 
 #include <queue>
 #include <ranges>
@@ -402,7 +401,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 				// copy the current data
 				data = stack.data();
 				StackType countOpsStack (data, {});
-				OperationForwardShuffler<StackManipulationCallbacks>::shuffle(countOpsStack, requiredStackTop, opLiveOutWithoutOutputs, static_cast<std::size_t>(tryTargetSize), m_junkBlockFinder.blockAllowsAdditionOfJunk(_blockId));
+				Shuffler<StackManipulationCallbacks>::shuffle(countOpsStack, requiredStackTop, opLiveOutWithoutOutputs, static_cast<std::size_t>(tryTargetSize));
 				yulAssert(countOpsStack.size() == tryTargetSize);
 				if (countOpsStack.callbacks().numOps < currentMinNumOps)
 				{
@@ -416,7 +415,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 		}();
 		if constexpr(debugOutput)
 			std::cout<<"\t\t\t -> ";
-		OperationForwardShuffler<StackManipulationCallbacks>::shuffle(stack, requiredStackTop, opLiveOutWithoutOutputs, targetSize, m_junkBlockFinder.blockAllowsAdditionOfJunk(_blockId));
+		Shuffler<StackManipulationCallbacks>::shuffle(stack, requiredStackTop, opLiveOutWithoutOutputs, targetSize);
 		if constexpr(debugOutput)
 		{
 			std::string const operationName = std::visit(util::GenericVisitor{

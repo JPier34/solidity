@@ -30,6 +30,7 @@
 #include <fmt/format.h>
 
 #include <algorithm>
+#include <charconv>
 #include <limits>
 #include <locale>
 #include <string>
@@ -206,6 +207,16 @@ void printPrefixed(
 inline std::string indent(std::string const& _input, bool _indentEmptyLines = false)
 {
 	return prefixLines(_input, "    ", !_indentEmptyLines);
+}
+
+template<arithmetic T>
+std::optional<T> parseArithmetic(std::string_view sv)
+{
+	T result;
+	auto const errorCondition = std::from_chars(sv.data(), sv.data() + sv.size(), result).ec;
+	if (errorCondition == std::errc())
+		return result;
+	return std::nullopt;
 }
 
 }
