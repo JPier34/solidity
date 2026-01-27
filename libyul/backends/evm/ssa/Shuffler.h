@@ -45,13 +45,11 @@ public:
 	bool requiredInArgs(StackSlot const& _slot) const;
 	bool requiredInTail(StackSlot const& _slot) const;
 
-	bool canBePopped(StackSlot const& _slot) const;
-
 	bool offsetInTargetArgsRegion(StackOffset _offset) const;
 	StackSlot const& targetArg(StackOffset _targetOffset) const;
 	bool isArgsCompatible(StackOffset _sourceOffset, StackOffset _targetOffset) const;
 	bool targetArbitrary(StackOffset _targetOffset) const;
-	bool isSourceCompatible(StackOffset const& _sourceOffset1, StackOffset const& _sourceOffset2) const;
+	bool isSourceCompatible(StackOffset _sourceOffset1, StackOffset _sourceOffset2) const;
 
 	Target const& target() const;
 
@@ -157,14 +155,6 @@ private:
 		// if the stack reaches into the args region try fixing a slot in there
 		if (_stack.size() >= _state.target().tailSize && fixArgsSlot(_stack, _state))
 			return true;
-
-		// todo i don't really need this do i
-		/*if (auto missingSlot = findMissingFreelyGeneratableLiveOutSlot(ops))
-		{
-			// Push missing freely-generatable liveOut slot (e.g., literal)
-			if (!dupDeepSlotIfRequired(ops))
-				_stack.push(*missingSlot);
-		}*/
 
 		{
 			// todo
@@ -458,10 +448,6 @@ private:
 
 				if (_stack.dupReachable(sourceOffset))
 				{
-					// todo i don't think i need this honestly
-					// If sourceOffset has the same value as top, skip - no point swapping (no-op) or duping (already at top)
-					if (endangeredSlot == _stack.top())
-						continue;
 
 					// if we can safely swap the current stack top with the endangered slot, we do that instead of DUP
 					if (

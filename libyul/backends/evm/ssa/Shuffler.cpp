@@ -118,23 +118,17 @@ bool State::requiredInTail(StackSlot const& _slot) const
 	return _slot.isValueID() && m_target.liveOut.contains(_slot.valueID());
 }
 
-bool State::canBePopped(StackSlot const& _slot) const
-{
-	bool enoughQuantity = count(_slot) > targetMinCount(_slot);
-	return (!requiredInArgs(_slot) && enoughQuantity) || (requiredInArgs(_slot) && countReachable(_slot) > 0); // todo  || stack.canBeFreelyGenerated(_slot)?
-}
-
-bool State::offsetInTargetArgsRegion(StackOffset _offset) const
+bool State::offsetInTargetArgsRegion(StackOffset const _offset) const
 {
 	return _offset.value >= m_target.size - m_target.args.size() && _offset.value < m_target.size;
 }
 
-StackSlot const& State::targetArg(StackOffset _targetOffset) const
+StackSlot const& State::targetArg(StackOffset const _targetOffset) const
 {
 	return m_target.args[_targetOffset.value - m_target.tailSize];
 }
 
-bool State::isArgsCompatible(StackOffset _sourceOffset, StackOffset _targetOffset) const
+bool State::isArgsCompatible(StackOffset const _sourceOffset, StackOffset const _targetOffset) const
 {
 	if (_sourceOffset >= m_stackData.size() || !offsetInTargetArgsRegion(_targetOffset))
 		return false;
@@ -142,12 +136,12 @@ bool State::isArgsCompatible(StackOffset _sourceOffset, StackOffset _targetOffse
 	return arg.isJunk() || m_stackData[_sourceOffset.value] == arg;
 }
 
-bool State::targetArbitrary(StackOffset _targetOffset) const
+bool State::targetArbitrary(StackOffset const _targetOffset) const
 {
 	return targetArg(_targetOffset).isJunk();
 }
 
-bool State::isSourceCompatible(StackOffset const& _sourceOffset1, StackOffset const& _sourceOffset2) const
+bool State::isSourceCompatible(StackOffset const _sourceOffset1, StackOffset const _sourceOffset2) const
 {
 	return _sourceOffset1 < m_stackData.size() &&
 		_sourceOffset2 < m_stackData.size() &&
