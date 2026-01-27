@@ -184,11 +184,11 @@ private:
 				return true;
 
 			// dup up the deepest slot that needs to go into args so we avoid having to fish it back up later
-			if (dupDeepestRelevantTailSlot(ops))
+			if (dupDeepestRelevantTailSlot(_stack, _state))
 				return true;
 
 			// Try to dup the optimal slot based on liveness analysis
-			if (auto slotToDup = selectOptimalSlotToDup(ops))
+			if (auto slotToDup = selectOptimalSlotToDup(_stack, _state))
 			{
 				if (!dupDeepSlotIfRequired(_stack, _state))
 					_stack.dup(*slotToDup);
@@ -234,7 +234,7 @@ private:
 					}
 
 					if (!_stack.dupReachable(*sourceDepth))
-						yulAssert(false, fmt::format("todo: stack too deep handling, couldn't dup up arg {}", slotToString(ops.targetArg(_stack.depthToOffset(*sourceDepth)))));
+						yulAssert(false, fmt::format("todo: stack too deep handling, couldn't dup up arg {}", slotToString(_state.targetArg(_stack.depthToOffset(*sourceDepth)))));
 					_stack.dup(*sourceDepth);
 					return true;
 				}
@@ -265,7 +265,7 @@ private:
 			if (!dupDeepSlotIfRequired(_stack, _state))
 			{
 				// Try to dup the optimal slot based on liveness analysis
-				if (auto slotToDup = selectOptimalSlotToDup(ops))
+				if (auto slotToDup = selectOptimalSlotToDup(_stack, _state))
 				{
 					if (!dupDeepSlotIfRequired(_stack, _state))
 						_stack.dup(*slotToDup);
@@ -288,7 +288,7 @@ private:
 			return true;
 
 		// If we find a lower slot that is out of position, but also compatible with the top, swap that up.
-		for (StackOffset const offset: stackSwapReachableRange(_stack))
+		for (StackOffset const offset: _state.stackSwapReachableRange())
 			if (
 				!_state.isArgsCompatible(offset, offset) &&
 				!_state.isSourceCompatible(offset, stackTopOffset) &&
@@ -301,7 +301,7 @@ private:
 			}
 
 		// Swap up any reachable slot that is still out of position.
-		for (StackOffset const offset: stackSwapReachableRange(_stack))
+		for (StackOffset const offset: _state.stackSwapReachableRange())
 			if (_stack.offsetToDepth(offset) < _state.target().args.size())
 			{
 				if (
@@ -339,28 +339,69 @@ private:
 		yulAssert(false, "reached final and forbidden state");
 	}
 
+	// Select the optimal slot to dup based on liveness analysis.
+	// Prioritizes slots that have the highest deficit with respect to liveOut counts.
+	// @returns the depth of the best slot to dup, or nullopt if no suitable slot exists.
+	static std::optional<StackDepth> selectOptimalSlotToDup(Stack<Callback> const& _stack, detail::State const& _state)
+	{
+		std::optional<StackDepth> bestSlot;
+		int bestDeficit = 0; // Only consider positive deficits
+
+		// Iterate through all slots on the stack
+		for (StackOffset offset: _state.stackRange())
+		{
+			Slot const& slot = _stack[offset];
+
+			// Skip junk slots
+			if (slot.isJunk())
+				continue;
+
+			// Check if this slot is dup-reachable
+			if (!_stack.dupReachable(offset))
+				continue;
+
+			// Calculate deficit: how many more of this slot do we need?
+			// Uses targetMinCount which includes both liveOut and args requirements
+			int currentCount = static_cast<int>(_state.count(slot));
+
+			int liveOutCount = 0;
+			if (slot.isValueID() && _state.target().liveOut.contains(slot.valueID()))
+				liveOutCount = static_cast<int>(_state.target().liveOut.count(slot.valueID()));
+			int deficit = liveOutCount - currentCount;
+
+			// int deficit = static_cast<int>(_state.targetMinCount(slot)) - currentCount;
+
+			// Update best if this deficit is higher
+			if (deficit > bestDeficit)
+			{
+				bestDeficit = deficit;
+				bestSlot = _stack.offsetToDepth(offset);
+			}
+		}
+
+		return bestSlot;
+	}
+
 	static bool dupDeepestRelevantTailSlot(Stack<Callback>& _stack, detail::State const& _state)
 	{
-		auto& stack = _ops.stack;
-
 		// dup up the deepest slot that is required in args (or compress if unreachable)
-		for (StackOffset offset: stackRange(_ops.stack))
+		for (StackOffset offset: _state.stackRange())
 		{
 			// if we need the slot in args and there's no slot of the same kind further up
 			if (
-				_ops.requiredInArgs(_ops.stack[offset]) &&
-				std::find(_ops.stack.begin() + offset.value + 1, _ops.stack.end(), _ops.stack[offset]) == _ops.stack.end()
+				_state.requiredInArgs(_stack[offset]) &&
+				std::find(_stack.begin() + offset.value + 1, _stack.end(), _stack[offset]) == _stack.end()
 			)
 			{
 				// dup if we can
-				if (_ops.stack.dupReachable(offset))
+				if (_stack.dupReachable(offset))
 				{
-					_ops.stack.dup(offset);
+					_stack.dup(offset);
 					return true;
 				}
 
 				// try to compress
-				if (shrinkStack(_ops.stack, _ops))
+				if (shrinkStack(_stack, _state))
 					return true;
 
 				// todo stack too deep handling, the slot at offset is required in args but we can't reach it
@@ -488,7 +529,7 @@ private:
 					}
 				// otherwise try swapping it with something that needs to go into args
 				for (StackOffset offset: _state.stackTailRange())
-					if (_stack.swapReachable(offset) && _state.countInArgs(_stack[offset]) < _stack.targetArgsCount(_stack[offset]))
+					if (_stack.swapReachable(offset) && _state.countInArgs(_stack[offset]) < _state.targetArgsCount(_stack[offset]))
 					{
 						_stack.swap(offset);
 						return true;
