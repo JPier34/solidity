@@ -72,7 +72,7 @@ public:
 
 	auto stackSwapReachableRange() const
 	{
-		return ranges::views::iota(0u, std::min(m_stackData.size(), m_reachableStackDepth + 1)) | ranges::views::transform([&](auto _i) { return StackOffset{m_stackData.size() - _i - 1}; }) | ranges::views::reverse;
+		return ranges::views::iota(0u, std::min(m_stackData.size(), m_reachableStackDepth + 1)) | ranges::views::transform([&](auto _i) { return StackOffset{m_stackData.size() - _i - 1}; });
 	}
 
 private:
