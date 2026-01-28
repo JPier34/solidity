@@ -391,24 +391,18 @@ private:
 				// in the arguments
 				yulAssert(_state.requiredInArgs(endangeredSlot));
 
-				// todo why without args!? if it's there, it's there, that's fine
-				auto const [haveMoreAboveWithoutArgs, haveMoreAbove] = [&]
+				auto const haveMoreAbove = [&]
 				{
 					for (StackOffset offset{sourceOffset.value + 1}; offset < _stack.size(); ++offset.value)
 					{
 						if (_stack[offset] == endangeredSlot)
-							return std::make_tuple(_stack.size() - offset.value - 1 >= _state.target().args.size(), true);
+							return true;
 					}
-					return std::make_tuple(false, false);
+					return false;
 				}();
 
 				// if we have more of the same further above, just unconditionally skip this one
-				if (haveMoreAboveWithoutArgs)
-					continue;
-
-				// if we need this in args and we have the same above but outside args, or we can introduce junk and
-				// there is more of the same further up in the stack, skip it
-				if ((neededInArgs && haveMoreAboveWithoutArgs) || (haveMoreAbove))
+				if (haveMoreAbove)
 					continue;
 
 				if (_stack.dupReachable(sourceOffset))
