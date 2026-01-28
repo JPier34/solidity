@@ -360,8 +360,7 @@ private:
 				if (shrinkStack(_stack, _state))
 					return true;
 
-				// todo stack too deep handling, the slot at offset is required in args but we can't reach it
-				yulAssert(false);
+				yulAssert(false, fmt::format("Stack too deep: can't reach slot af offset {}", offset.value));
 			}
 		}
 		return false;
@@ -464,7 +463,7 @@ private:
 	{
 		yulAssert(_stack.size() <= _state.target().size, "this method assumes that the stack isn't too large");
 		// todo the _stack.empty() check here is wrong
-		if (_stack.size() <= _state.target().tailSize || _stack.empty())
+		if (_stack.size() <= _state.target().tailSize)
 			return false;
 
 		StackOffset const stackTop{_stack.size() - 1};
