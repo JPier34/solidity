@@ -773,27 +773,6 @@ private:
 					_stack.push(Slot::makeJunk());
 				return true;
 			}
-
-			if (dupDeepSlotIfRequired(_stack, _state))
-				return true;
-
-			{
-				StackOffset const targetOffset{_stack.size()};
-				if (_state.count(_state.targetArg(targetOffset)) < _state.targetMinCount(_state.targetArg(targetOffset)))
-				{
-					auto const sourceDepth = _stack.findSlotDepth(_state.targetArg(targetOffset));
-					if (!sourceDepth)
-					{
-						_stack.push(_state.targetArg(targetOffset));
-						return true;
-					}
-
-					if (!_stack.dupReachable(*sourceDepth))
-						yulAssert(false, fmt::format("todo: stack too deep handling, couldn't dup up arg {}", slotToString(_state.targetArg(_stack.depthToOffset(*sourceDepth)))));
-					_stack.dup(*sourceDepth);
-					return true;
-				}
-			}
 		}
 		return false;
 	}
