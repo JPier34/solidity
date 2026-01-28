@@ -462,7 +462,6 @@ private:
 	static bool fixArgsSlot(Stack<Callback>& _stack, detail::State const& _state)
 	{
 		yulAssert(_stack.size() <= _state.target().size, "this method assumes that the stack isn't too large");
-		// todo the _stack.empty() check here is wrong
 		if (_stack.size() <= _state.target().tailSize)
 			return false;
 
