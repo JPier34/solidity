@@ -446,7 +446,7 @@ private:
 					if (shrinkStack(_stack, _state))
 						return true;
 
-					yulAssert(false, "Stack too deep");
+					yulAssert(false, fmt::format("Stack too deep, can't reach slot at depth {}", depth->value));
 				}
 			}
 		}
@@ -686,8 +686,7 @@ private:
 				}
 
 				if (
-					!_state.isArgsCompatible(offset, offset) && // don't swap away a slot already in correct args position)
-					_stack.swapReachable(offset) // if we can swap it up
+					true || !_state.isArgsCompatible(offset, offset) // don't swap away a slot already in correct args position
 				) {
 					// find the lowest swappable slot in tail that needs to go to args, swap
 					for (StackOffset tailOffset: _state.stackTailRange())
@@ -738,6 +737,9 @@ private:
 							return true;
 						}
 				}
+
+				// we needed to bring the slot into tail but couldn't, not enough stack target space -> spill to memory
+				yulAssert(false, "stack too deep: couldn't swap args slot into tail without moving something else out that is required there");
 			}
 		}
 
