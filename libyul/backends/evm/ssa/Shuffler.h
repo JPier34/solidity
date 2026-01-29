@@ -685,62 +685,58 @@ private:
 					}
 				}
 
-				if (
-					true || !_state.isArgsCompatible(offset, offset) // don't swap away a slot already in correct args position
-				) {
-					// find the lowest swappable slot in tail that needs to go to args, swap
-					for (StackOffset tailOffset: _state.stackTailRange())
+				// find the lowest swappable slot in tail that needs to go to args, swap
+				for (StackOffset tailOffset: _state.stackTailRange())
+				{
+					auto const& slotAtTailOffset = _stack[tailOffset];
+					if (
+						_stack.swapReachable(tailOffset) &&  // we can swap that deep
+						(!_state.requiredInTail(slotAtTailOffset) || _state.countInTail(slotAtTailOffset) > 1) &&  // dont need it in tail or it's available more than once
+						_state.requiredInArgs(slotAtTailOffset) &&  // we need the tail offset slot in args
+						_state.targetArgsCount(slotAtTailOffset) > _state.countInArgs(slotAtTailOffset)  // we don't already have enough of it in args
+					)
 					{
-						auto const& slotAtTailOffset = _stack[tailOffset];
-						if (
-							_stack.swapReachable(tailOffset) &&  // we can swap that deep
-							(!_state.requiredInTail(slotAtTailOffset) || _state.countInTail(slotAtTailOffset) > 1) &&  // dont need it in tail or it's available more than once
-							_state.requiredInArgs(slotAtTailOffset) &&  // we need the tail offset slot in args
-							_state.targetArgsCount(slotAtTailOffset) > _state.countInArgs(slotAtTailOffset)  // we don't already have enough of it in args
-						)
-						{
-							// bring up offset slot if necessary
-							if (offset != StackOffset{_stack.size() - 1})
-								_stack.swap(offset);
-							// swap offset slot down into tail
-							_stack.swap(tailOffset);
-							return true;
-						}
+						// bring up offset slot if necessary
+						if (offset != StackOffset{_stack.size() - 1})
+							_stack.swap(offset);
+						// swap offset slot down into tail
+						_stack.swap(tailOffset);
+						return true;
 					}
-					// find the lowest swappable slot in tail that can be popped but is no literal, swap
-					for (StackOffset tailOffset: _state.stackTailRange())
-						if (
-							_stack.swapReachable(tailOffset) &&
-							_stack.canBeFreelyGenerated(_stack[tailOffset]) &&
-							!_stack[tailOffset].isLiteralValueID()
-						)
-						{
-							// bring up offset slot if necessary
-							if (offset != StackOffset{_stack.size() - 1})
-								_stack.swap(offset);
-							// swap offset slot down into tail
-							_stack.swap(tailOffset);
-							return true;
-						}
-					// find the lowest swappable slot in tail that is a literal, swap
-					for (StackOffset tailOffset: _state.stackTailRange())
-						if (
-							_stack.swapReachable(tailOffset) &&
-							_stack[tailOffset].isLiteralValueID()
-						)
-						{
-							// bring up offset slot if necessary
-							if (offset != StackOffset{_stack.size() - 1})
-								_stack.swap(offset);
-							// swap offset slot down into tail
-							_stack.swap(tailOffset);
-							return true;
-						}
 				}
-
-				// we needed to bring the slot into tail but couldn't, not enough stack target space -> spill to memory
-				yulAssert(false, "stack too deep: couldn't swap args slot into tail without moving something else out that is required there");
+				// find the lowest swappable slot in tail that can be popped but is no literal, swap
+				for (StackOffset tailOffset: _state.stackTailRange())
+					if (
+						_stack.swapReachable(tailOffset) &&
+						_stack.canBeFreelyGenerated(_stack[tailOffset]) &&
+						!_stack[tailOffset].isLiteralValueID()
+					)
+					{
+						// bring up offset slot if necessary
+						if (offset != StackOffset{_stack.size() - 1})
+							_stack.swap(offset);
+						// swap offset slot down into tail
+						_stack.swap(tailOffset);
+						return true;
+					}
+				// find the lowest swappable slot in tail that is a literal, swap
+				for (StackOffset tailOffset: _state.stackTailRange())
+					if (
+						_stack.swapReachable(tailOffset) &&
+						_stack[tailOffset].isLiteralValueID()
+					)
+					{
+						// bring up offset slot if necessary
+						if (offset != StackOffset{_stack.size() - 1})
+							_stack.swap(offset);
+						// swap offset slot down into tail
+						_stack.swap(tailOffset);
+						return true;
+					}
 			}
+
+			// we needed to bring the slot into tail but couldn't, not enough stack target space -> spill to memory
+			yulAssert(false, "stack too deep: couldn't swap args slot into tail without moving something else out that is required there");
 		}
 
 		if (_stack.size() < _state.target().tailSize)
